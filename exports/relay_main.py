@@ -6,7 +6,7 @@ from fastapi.responses import JSONResponse
 app = FastAPI(title="OroPlay Relay", version="2.0.0")
 
 UPSTREAM = os.getenv("UPSTREAM_API_BASE", "https://bs.sxvwlkohlv.com/api/v2").rstrip("/")
-APP_CALLBACK_BASE = os.getenv("APP_CALLBACK_BASE", "http://127.0.0.1:8000").rstrip("/")
+APP_CALLBACK_BASE = os.getenv("APP_CALLBACK_BASE", "https://0ca3629e-36b3-432f-94e1-e30e40ad07b9-00-2hgl3w95jkn57.janeway.replit.dev").rstrip("/")
 TIMEOUT = float(os.getenv("PROXY_TIMEOUT", "60"))
 
 
@@ -51,8 +51,10 @@ async def _forward_callback(request: Request, target: str) -> Response:
     if "authorization" in request.headers:
         headers["Authorization"] = request.headers["authorization"]
 
+    url = f"{APP_CALLBACK_BASE}/api{target}"
+
     async with httpx.AsyncClient(timeout=TIMEOUT, follow_redirects=False) as c:
-        r = await c.post(f"{APP_CALLBACK_BASE}{target}", content=body, headers=headers)
+        r = await c.post(url, content=body, headers=headers)
 
     ct = r.headers.get("content-type", "application/json").split(";")[0]
     return Response(content=r.content, status_code=r.status_code, media_type=ct)
@@ -60,17 +62,17 @@ async def _forward_callback(request: Request, target: str) -> Response:
 
 @app.post("/api/balance")
 async def cb_balance(request: Request):
-    return await _forward_callback(request, "/api/balance")
+    return await _forward_callback(request, "/balance")
 
 
 @app.post("/api/transaction")
 async def cb_transaction(request: Request):
-    return await _forward_callback(request, "/api/transaction")
+    return await _forward_callback(request, "/transaction")
 
 
 @app.post("/api/batch-transactions")
 async def cb_batch(request: Request):
-    return await _forward_callback(request, "/api/batch-transactions")
+    return await _forward_callback(request, "/batch-transactions")
 
 
 if __name__ == "__main__":

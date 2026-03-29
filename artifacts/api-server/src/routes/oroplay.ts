@@ -6,6 +6,8 @@ let cachedToken: string | null = null;
 let tokenExpiry: number = 0;
 let tokenPromise: Promise<string> | null = null;
 
+const playerBalances: Record<string, { balance: number; currency: string }> = {};
+
 function getEnvConfig() {
   const endpoint = (process.env["OROPLAY_API_ENDPOINT"] || "https://api-endpoint.com/api/v2").replace(/\/+$/, "");
   return {
@@ -81,11 +83,19 @@ async function oroplayRequest(
     headers,
     body: method === "POST" ? JSON.stringify(body) : undefined,
   });
-  if (!resp.ok) {
-    const text = await resp.text();
-    throw new Error(`OroPlay API error ${resp.status}: ${text}`);
+  const text = await resp.text();
+  let result: unknown;
+  try {
+    result = JSON.parse(text);
+  } catch {
+    if (!resp.ok) throw new Error(`OroPlay API error ${resp.status}: ${text}`);
+    return text;
   }
-  return resp.json();
+  if (!resp.ok) {
+    const msg = (result as Record<string, unknown>)?.message || text;
+    throw new Error(`OroPlay API error ${resp.status}: ${msg}`);
+  }
+  return result;
 }
 
 router.get("/oroplay/config", (_req: Request, res: Response) => {
@@ -117,7 +127,7 @@ router.post("/oroplay/token", async (req: Request, res: Response) => {
     cachedToken = result.token;
     tokenExpiry = result.expiration;
 
-    res.json({ success: true, token: result.token, expiration: result.expiration });
+    res.json({ success: true });
   } catch (err) {
     req.log.error({ err }, "Token creation failed");
     res.status(400).json({ success: false, message: err instanceof Error ? err.message : "Token creation failed" });
@@ -209,14 +219,16 @@ router.post("/oroplay/player/create", async (req: Request, res: Response) => {
       return;
     }
     const { playerCode, currency, nickname } = req.body as { playerCode: string; currency?: string; nickname?: string };
+    const cur = currency || "USD";
     const data = await oroplayRequest(
       "POST",
       "/game/users/create",
-      { playerCode, currency: currency || "USD", nickname: nickname || playerCode },
+      { playerCode, currency: cur, nickname: nickname || playerCode },
       env.clientId,
       env.clientSecret,
       env.apiEndpoint
     );
+    playerBalances[playerCode] = { balance: 0, currency: cur };
     res.json(data);
   } catch (err) {
     req.log.error({ err }, "Player create failed");
@@ -240,6 +252,13 @@ router.post("/oroplay/player/balance", async (req: Request, res: Response) => {
       env.clientSecret,
       env.apiEndpoint
     );
+    const result = data as Record<string, unknown>;
+    if (result.balance !== undefined) {
+      playerBalances[playerCode] = {
+        balance: Number(result.balance) || 0,
+        currency: String(result.currency || "USD"),
+      };
+    }
     res.json(data);
   } catch (err) {
     req.log.error({ err }, "Balance fetch failed");
@@ -264,6 +283,9 @@ router.post("/oroplay/player/deposit", async (req: Request, res: Response) => {
       env.clientSecret,
       env.apiEndpoint
     );
+    if (playerBalances[playerCode]) {
+      playerBalances[playerCode].balance += amount;
+    }
     res.json(data);
   } catch (err) {
     req.log.error({ err }, "Deposit failed");
@@ -290,10 +312,154 @@ router.post("/oroplay/player/withdraw", async (req: Request, res: Response) => {
     }
 
     const data = await oroplayRequest("POST", endpoint, body, env.clientId, env.clientSecret, env.apiEndpoint);
+    if (playerBalances[playerCode]) {
+      if (amount === -1) {
+        playerBalances[playerCode].balance = 0;
+      } else {
+        playerBalances[playerCode].balance = Math.max(0, playerBalances[playerCode].balance - amount);
+      }
+    }
     res.json(data);
   } catch (err) {
     req.log.error({ err }, "Withdraw failed");
     res.status(400).json({ success: false, message: err instanceof Error ? err.message : "Failed to withdraw" });
+  }
+});
+
+router.post("/balance", (req: Request, res: Response) => {
+  try {
+    const { playerCode, currency } = req.body as { playerCode?: string; currency?: string };
+    req.log.info({ playerCode, currency }, "Seamless wallet: balance callback");
+
+    if (!playerCode) {
+      res.status(400).json({ success: false, errorCode: 400, message: "Missing playerCode" });
+      return;
+    }
+
+    const player = playerBalances[playerCode];
+    if (!player) {
+      res.status(200).json({
+        success: true,
+        balance: 0,
+        currency: currency || "USD",
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      balance: player.balance,
+      currency: player.currency,
+    });
+  } catch (err) {
+    req.log.error({ err }, "Balance callback error");
+    res.status(500).json({ success: false, errorCode: 500, message: "Internal error" });
+  }
+});
+
+router.post("/transaction", (req: Request, res: Response) => {
+  try {
+    const { playerCode, currency, amount, txnId, txnType, gameCode, roundId, platformTxnId } = req.body as {
+      playerCode?: string;
+      currency?: string;
+      amount?: number;
+      txnId?: string;
+      txnType?: string;
+      gameCode?: string;
+      roundId?: string;
+      platformTxnId?: string;
+    };
+
+    req.log.info({ playerCode, txnType, amount, txnId, gameCode, roundId, platformTxnId }, "Seamless wallet: transaction callback");
+
+    if (!playerCode || amount === undefined || !txnId || !txnType) {
+      res.status(400).json({ success: false, errorCode: 400, message: "Missing required fields" });
+      return;
+    }
+
+    if (!playerBalances[playerCode]) {
+      playerBalances[playerCode] = { balance: 0, currency: currency || "USD" };
+    }
+
+    const player = playerBalances[playerCode];
+
+    if (txnType === "BET" || txnType === "DEBIT") {
+      if (player.balance < amount) {
+        res.json({
+          success: false,
+          errorCode: 402,
+          message: "Insufficient balance",
+          balance: player.balance,
+          currency: player.currency,
+        });
+        return;
+      }
+      player.balance -= amount;
+    } else if (txnType === "WIN" || txnType === "CREDIT") {
+      player.balance += amount;
+    } else if (txnType === "ROLLBACK" || txnType === "REFUND") {
+      player.balance += amount;
+    }
+
+    res.json({
+      success: true,
+      balance: player.balance,
+      currency: player.currency,
+      txnId,
+      platformTxnId: platformTxnId || txnId,
+    });
+  } catch (err) {
+    req.log.error({ err }, "Transaction callback error");
+    res.status(500).json({ success: false, errorCode: 500, message: "Internal error" });
+  }
+});
+
+router.post("/batch-transactions", (req: Request, res: Response) => {
+  try {
+    const { playerCode, currency, transactions } = req.body as {
+      playerCode?: string;
+      currency?: string;
+      transactions?: Array<{ amount: number; txnId: string; txnType: string; gameCode?: string; roundId?: string; platformTxnId?: string }>;
+    };
+
+    req.log.info({ playerCode, txnCount: transactions?.length }, "Seamless wallet: batch-transactions callback");
+
+    if (!playerCode || !transactions || !Array.isArray(transactions)) {
+      res.status(400).json({ success: false, errorCode: 400, message: "Missing required fields" });
+      return;
+    }
+
+    if (!playerBalances[playerCode]) {
+      playerBalances[playerCode] = { balance: 0, currency: currency || "USD" };
+    }
+
+    const player = playerBalances[playerCode];
+    const results: Array<{ txnId: string; success: boolean; balance: number }> = [];
+
+    for (const txn of transactions) {
+      if (txn.txnType === "BET" || txn.txnType === "DEBIT") {
+        if (player.balance < txn.amount) {
+          results.push({ txnId: txn.txnId, success: false, balance: player.balance });
+          continue;
+        }
+        player.balance -= txn.amount;
+      } else if (txn.txnType === "WIN" || txn.txnType === "CREDIT") {
+        player.balance += txn.amount;
+      } else if (txn.txnType === "ROLLBACK" || txn.txnType === "REFUND") {
+        player.balance += txn.amount;
+      }
+      results.push({ txnId: txn.txnId, success: true, balance: player.balance });
+    }
+
+    res.json({
+      success: true,
+      balance: player.balance,
+      currency: player.currency,
+      transactions: results,
+    });
+  } catch (err) {
+    req.log.error({ err }, "Batch transactions callback error");
+    res.status(500).json({ success: false, errorCode: 500, message: "Internal error" });
   }
 });
 

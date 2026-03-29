@@ -69,10 +69,27 @@ Express 5 API server. Routes live in `src/routes/` and use `@workspace/api-zod` 
 - Entry: `src/index.ts` — reads `PORT`, starts Express
 - App setup: `src/app.ts` — mounts CORS, JSON/urlencoded parsing, routes at `/api`
 - Routes: `src/routes/index.ts` mounts sub-routers; `src/routes/health.ts` exposes `GET /health` (full path: `/api/health`)
+- OroPlay proxy routes: `src/routes/oroplay.ts` — token auth, vendor/game/player endpoints, seamless wallet callbacks
+- **Seamless Wallet Callbacks** (OroPlay → Relay VPS → Our App):
+  - `POST /api/balance` — returns player balance
+  - `POST /api/transaction` — processes BET/WIN/CREDIT/DEBIT/ROLLBACK/REFUND
+  - `POST /api/batch-transactions` — processes multiple transactions in one call
 - Depends on: `@workspace/db`, `@workspace/api-zod`
 - `pnpm --filter @workspace/api-server run dev` — run the dev server
 - `pnpm --filter @workspace/api-server run build` — production esbuild bundle (`dist/index.cjs`)
 - Build bundles an allowlist of deps (express, cors, pg, drizzle-orm, zod, etc.) and externalizes the rest
+
+### Network Architecture
+
+```
+Player → Replit App (this server)
+Replit App → Relay VPS (193.23.221.170:9000, whitelisted by OroPlay) → OroPlay API
+OroPlay → Relay VPS → Replit App (seamless wallet callbacks)
+```
+
+- **Relay VPS script**: `exports/relay_main.py` — FastAPI proxy, deploy on VPS with `pip install fastapi httpx uvicorn && python relay_main.py`
+- **Env vars on relay**: `UPSTREAM_API_BASE` (OroPlay API), `APP_CALLBACK_BASE` (this Replit app URL)
+- **Env var on Replit**: `OROPLAY_API_ENDPOINT=http://193.23.221.170:9000/api/v2`
 
 ### `lib/db` (`@workspace/db`)
 
