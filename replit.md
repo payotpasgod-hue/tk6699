@@ -85,10 +85,12 @@ artifacts-monorepo/
 
 ## Security
 
-- All balance mutations use atomic SQL (no read-modify-write races)
-- Transaction dedup via unique transactionCode + in-memory cache
-- Duplicate inserts caught via unique constraint (23505) → idempotent response
+- Wallet callbacks use PostgreSQL transactions with advisory locks (`pg_advisory_xact_lock`) for race-safe atomic idempotency
+- Balance mutation + transaction insert happen in a single DB transaction — no double-apply on concurrent duplicate requests
+- Transaction dedup via unique transactionCode + in-memory cache + DB unique constraint
 - Callback auth fails closed (rejects if credentials not configured)
+- OroPlay proxy endpoints (`/vendors`, `/games`, `/game/detail`) require user authentication
+- OroPlay token endpoint requires admin authentication
 - Admin endpoints require role="admin"
 - Session tokens: 30-day expiry, Bearer token in Authorization header
 

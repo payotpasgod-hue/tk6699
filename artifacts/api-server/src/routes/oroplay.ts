@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import * as fs from "fs";
 import * as path from "path";
-import { db } from "@workspace/db";
+import { db, pool } from "@workspace/db";
 import { usersTable, transactionsTable } from "@workspace/db/schema";
 import { eq, sql } from "drizzle-orm";
 import { authMiddleware, adminMiddleware } from "./auth";
@@ -209,7 +209,7 @@ router.get("/oroplay/config", (_req: Request, res: Response) => {
   });
 });
 
-router.post("/oroplay/token", async (req: Request, res: Response) => {
+router.post("/oroplay/token", authMiddleware, adminMiddleware, async (req: Request, res: Response) => {
   try {
     const env = getEnvConfig();
     if (!env.clientId || !env.clientSecret) {
@@ -228,7 +228,7 @@ router.post("/oroplay/token", async (req: Request, res: Response) => {
   }
 });
 
-router.get("/oroplay/vendors", async (req: Request, res: Response) => {
+router.get("/oroplay/vendors", authMiddleware, async (req: Request, res: Response) => {
   try {
     const env = getEnvConfig();
     if (!env.clientId || !env.clientSecret) {
@@ -243,7 +243,7 @@ router.get("/oroplay/vendors", async (req: Request, res: Response) => {
   }
 });
 
-router.post("/oroplay/games", async (req: Request, res: Response) => {
+router.post("/oroplay/games", authMiddleware, async (req: Request, res: Response) => {
   try {
     const env = getEnvConfig();
     if (!env.clientId || !env.clientSecret) {
@@ -259,7 +259,7 @@ router.post("/oroplay/games", async (req: Request, res: Response) => {
   }
 });
 
-router.post("/oroplay/game/detail", async (req: Request, res: Response) => {
+router.post("/oroplay/game/detail", authMiddleware, async (req: Request, res: Response) => {
   try {
     const env = getEnvConfig();
     if (!env.clientId || !env.clientSecret) {
@@ -485,14 +485,6 @@ router.post("/transaction", async (req: Request, res: Response) => {
       return;
     }
 
-    const existingTxn = await db.select({ id: transactionsTable.id }).from(transactionsTable).where(eq(transactionsTable.transactionCode, transactionCode)).limit(1);
-    if (existingTxn.length > 0) {
-      processedTransactions.add(transactionCode);
-      const users = await db.select().from(usersTable).where(eq(usersTable.userCode, userCode)).limit(1);
-      res.json({ success: false, errorCode: 6, message: users.length > 0 ? Number(users[0].balance) : 0 });
-      return;
-    }
-
     const users = await db.select().from(usersTable).where(eq(usersTable.userCode, userCode)).limit(1);
     if (users.length === 0) {
       res.status(400).json({ success: false, errorCode: 2, message: "User not found" });
@@ -500,59 +492,85 @@ router.post("/transaction", async (req: Request, res: Response) => {
     }
 
     const user = users[0];
-    let newBalance: number | null;
-
-    if (isCanceled && amount < 0) {
-      newBalance = await atomicBalanceUpdate(user.id, Math.abs(amount), true);
-    } else if (amount < 0) {
-      newBalance = await atomicBalanceUpdate(user.id, amount, false);
-      if (newBalance === null) {
-        const currentUser = await db.select().from(usersTable).where(eq(usersTable.id, user.id)).limit(1);
-        res.json({ success: false, errorCode: 4, message: currentUser.length > 0 ? Number(currentUser[0].balance) : 0 });
-        return;
-      }
-    } else if (amount > 0) {
-      newBalance = await atomicBalanceUpdate(user.id, amount, true);
-    } else {
-      newBalance = Number(user.balance);
-    }
-
-    if (newBalance === null) {
-      res.status(500).json({ success: false, errorCode: 500, message: "Balance update failed" });
-      return;
-    }
+    const client = await pool.connect();
 
     try {
-      await db.insert(transactionsTable).values({
-        userId: user.id,
-        type: isCanceled ? "cancel" : amount < 0 ? "bet" : "win",
-        amount: amount.toFixed(2),
-        balanceAfter: newBalance.toFixed(2),
-        transactionCode,
-        vendorCode: vendorCode || null,
-        gameCode: gameCode || null,
-        roundId: roundId || null,
-      });
-    } catch (insertErr: any) {
-      if (insertErr?.code === "23505") {
-        const currentUser = await db.select().from(usersTable).where(eq(usersTable.id, user.id)).limit(1);
+      await client.query("BEGIN");
+
+      await client.query("SELECT pg_advisory_xact_lock($1)", [user.id]);
+
+      const dupCheck = await client.query(
+        "SELECT id FROM transactions WHERE transaction_code = $1 LIMIT 1",
+        [transactionCode]
+      );
+      if (dupCheck.rows.length > 0) {
+        await client.query("COMMIT");
         processedTransactions.add(transactionCode);
-        res.json({ success: false, errorCode: 6, message: currentUser.length > 0 ? Number(currentUser[0].balance) : newBalance });
+        const curBal = await client.query("SELECT balance FROM users WHERE id = $1", [user.id]);
+        res.json({ success: false, errorCode: 6, message: curBal.rows.length > 0 ? Number(curBal.rows[0].balance) : 0 });
         return;
       }
-      throw insertErr;
-    }
 
-    processedTransactions.add(transactionCode);
-
-    if (processedTransactions.size > 100000) {
-      const entries = Array.from(processedTransactions);
-      for (let i = 0; i < 50000; i++) {
-        processedTransactions.delete(entries[i]);
+      let balResult;
+      if (isCanceled && amount < 0) {
+        balResult = await client.query(
+          "UPDATE users SET balance = balance + $1, updated_at = NOW() WHERE id = $2 RETURNING balance AS new_balance",
+          [Math.abs(amount), user.id]
+        );
+      } else if (amount < 0) {
+        balResult = await client.query(
+          "UPDATE users SET balance = balance + $1, updated_at = NOW() WHERE id = $2 AND balance >= $3 RETURNING balance AS new_balance",
+          [amount, user.id, Math.abs(amount)]
+        );
+        if (balResult.rows.length === 0) {
+          await client.query("COMMIT");
+          const curBal = await client.query("SELECT balance FROM users WHERE id = $1", [user.id]);
+          res.json({ success: false, errorCode: 4, message: curBal.rows.length > 0 ? Number(curBal.rows[0].balance) : 0 });
+          return;
+        }
+      } else if (amount > 0) {
+        balResult = await client.query(
+          "UPDATE users SET balance = balance + $1, updated_at = NOW() WHERE id = $2 RETURNING balance AS new_balance",
+          [amount, user.id]
+        );
+      } else {
+        balResult = { rows: [{ new_balance: user.balance }] };
       }
-    }
 
-    res.json({ success: true, message: newBalance, errorCode: 0 });
+      const newBalance = Number(balResult.rows[0].new_balance);
+
+      await client.query(
+        `INSERT INTO transactions (user_id, type, amount, balance_after, transaction_code, vendor_code, game_code, round_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [
+          user.id,
+          isCanceled ? "cancel" : amount < 0 ? "bet" : "win",
+          amount.toFixed(2),
+          newBalance.toFixed(2),
+          transactionCode,
+          vendorCode || null,
+          gameCode || null,
+          roundId || null,
+        ]
+      );
+
+      await client.query("COMMIT");
+
+      processedTransactions.add(transactionCode);
+      if (processedTransactions.size > 100000) {
+        const entries = Array.from(processedTransactions);
+        for (let i = 0; i < 50000; i++) {
+          processedTransactions.delete(entries[i]);
+        }
+      }
+
+      res.json({ success: true, message: newBalance, errorCode: 0 });
+    } catch (txErr) {
+      await client.query("ROLLBACK");
+      throw txErr;
+    } finally {
+      client.release();
+    }
   } catch (err) {
     req.log.error({ err }, "Transaction callback error");
     res.status(500).json({ success: false, errorCode: 500, message: "Internal error" });
@@ -590,58 +608,76 @@ router.post("/batch-transactions", async (req: Request, res: Response) => {
 
     const user = users[0];
     let latestBalance = Number(user.balance);
+    const client = await pool.connect();
 
-    for (const txn of transactions) {
-      const txnCode = txn.transactionCode;
-      if (txnCode && processedTransactions.has(txnCode)) {
-        continue;
-      }
+    try {
+      await client.query("BEGIN");
+      await client.query("SELECT pg_advisory_xact_lock($1)", [user.id]);
 
-      if (txnCode) {
-        const existingTxn = await db.select({ id: transactionsTable.id }).from(transactionsTable).where(eq(transactionsTable.transactionCode, txnCode)).limit(1);
-        if (existingTxn.length > 0) {
-          processedTransactions.add(txnCode);
-          continue;
-        }
-      }
+      for (const txn of transactions) {
+        const txnCode = txn.transactionCode;
+        if (txnCode && processedTransactions.has(txnCode)) continue;
 
-      const amount = txn.amount || 0;
-      let newBal: number | null;
-
-      if (txn.isCanceled && amount < 0) {
-        newBal = await atomicBalanceUpdate(user.id, Math.abs(amount), true);
-      } else if (amount < 0) {
-        newBal = await atomicBalanceUpdate(user.id, amount, false);
-        if (newBal === null) continue;
-      } else if (amount > 0) {
-        newBal = await atomicBalanceUpdate(user.id, amount, true);
-      } else {
-        continue;
-      }
-
-      if (newBal !== null) {
-        latestBalance = newBal;
-        try {
-          await db.insert(transactionsTable).values({
-            userId: user.id,
-            type: txn.isCanceled ? "cancel" : amount < 0 ? "bet" : "win",
-            amount: amount.toFixed(2),
-            balanceAfter: newBal.toFixed(2),
-            transactionCode: txnCode || null,
-            vendorCode: txn.vendorCode || null,
-            gameCode: txn.gameCode || null,
-            roundId: txn.roundId || null,
-          });
-        } catch (insertErr: any) {
-          if (insertErr?.code === "23505") {
-            if (txnCode) processedTransactions.add(txnCode);
+        if (txnCode) {
+          const dupCheck = await client.query(
+            "SELECT id FROM transactions WHERE transaction_code = $1 LIMIT 1",
+            [txnCode]
+          );
+          if (dupCheck.rows.length > 0) {
+            processedTransactions.add(txnCode);
             continue;
           }
-          throw insertErr;
         }
+
+        const amount = txn.amount || 0;
+        if (amount === 0) continue;
+
+        let balResult;
+        if (txn.isCanceled && amount < 0) {
+          balResult = await client.query(
+            "UPDATE users SET balance = balance + $1, updated_at = NOW() WHERE id = $2 RETURNING balance AS new_balance",
+            [Math.abs(amount), user.id]
+          );
+        } else if (amount < 0) {
+          balResult = await client.query(
+            "UPDATE users SET balance = balance + $1, updated_at = NOW() WHERE id = $2 AND balance >= $3 RETURNING balance AS new_balance",
+            [amount, user.id, Math.abs(amount)]
+          );
+          if (balResult.rows.length === 0) continue;
+        } else {
+          balResult = await client.query(
+            "UPDATE users SET balance = balance + $1, updated_at = NOW() WHERE id = $2 RETURNING balance AS new_balance",
+            [amount, user.id]
+          );
+        }
+
+        const newBal = Number(balResult.rows[0].new_balance);
+        latestBalance = newBal;
+
+        await client.query(
+          `INSERT INTO transactions (user_id, type, amount, balance_after, transaction_code, vendor_code, game_code, round_id)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          [
+            user.id,
+            txn.isCanceled ? "cancel" : amount < 0 ? "bet" : "win",
+            amount.toFixed(2),
+            newBal.toFixed(2),
+            txnCode || null,
+            txn.vendorCode || null,
+            txn.gameCode || null,
+            txn.roundId || null,
+          ]
+        );
+
+        if (txnCode) processedTransactions.add(txnCode);
       }
 
-      if (txnCode) processedTransactions.add(txnCode);
+      await client.query("COMMIT");
+    } catch (txErr) {
+      await client.query("ROLLBACK");
+      throw txErr;
+    } finally {
+      client.release();
     }
 
     res.json({ success: true, message: latestBalance, errorCode: 0 });
