@@ -2,38 +2,10 @@ import { useState, useEffect } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 const BANNERS = [
-  {
-    id: 1,
-    title: "Welcome Bonus",
-    subtitle: "Get 100% on your first deposit",
-    accent: "Up to ৳10,000",
-    image: "/images/promo-welcome.png",
-    gradient: "from-amber-900/80 to-transparent",
-  },
-  {
-    id: 2,
-    title: "VIP Rewards",
-    subtitle: "Exclusive perks for loyal players",
-    accent: "Join VIP Club",
-    image: "/images/promo-vip.png",
-    gradient: "from-amber-900/80 to-transparent",
-  },
-  {
-    id: 3,
-    title: "Slots Tournament",
-    subtitle: "Compete for massive jackpots",
-    accent: "৳500,000 Prize Pool",
-    image: "/images/promo-slots.png",
-    gradient: "from-purple-900/80 to-transparent",
-  },
-  {
-    id: 4,
-    title: "Daily Cashback",
-    subtitle: "Get 5% back on every loss",
-    accent: "No Limits",
-    image: "/images/promo-cashback.png",
-    gradient: "from-blue-900/80 to-transparent",
-  },
+  { id: 1, image: "/images/promo-welcome.png", alt: "Welcome Bonus" },
+  { id: 2, image: "/images/promo-vip.png", alt: "VIP Rewards" },
+  { id: 3, image: "/images/promo-slots.png", alt: "Slots Tournament" },
+  { id: 4, image: "/images/promo-cashback.png", alt: "Daily Cashback" },
 ];
 
 export function PromoBanner() {
@@ -45,8 +17,6 @@ export function PromoBanner() {
     }, 5000);
     return () => clearInterval(timer);
   }, []);
-
-  const banner = BANNERS[current];
 
   return (
     <div className="relative w-full rounded-2xl overflow-hidden mb-5 aspect-[21/9] sm:aspect-[3/1]">
@@ -60,26 +30,11 @@ export function PromoBanner() {
         >
           <img
             src={b.image}
-            alt={b.title}
+            alt={b.alt}
             className="absolute inset-0 w-full h-full object-cover"
           />
-          <div className={`absolute inset-0 bg-gradient-to-r ${b.gradient}`} />
         </div>
       ))}
-
-      <div className="absolute inset-0 flex items-center px-6 sm:px-10">
-        <div className="relative z-10">
-          <p className="text-xs sm:text-sm font-bold text-white/80 uppercase tracking-wider mb-1">
-            {banner.subtitle}
-          </p>
-          <h2 className="text-2xl sm:text-4xl font-display font-bold text-white mb-2 drop-shadow-lg">
-            {banner.title}
-          </h2>
-          <p className="text-lg sm:text-2xl font-display font-bold text-amber-300 drop-shadow-lg">
-            {banner.accent}
-          </p>
-        </div>
-      </div>
 
       <button
         onClick={() => setCurrent((current - 1 + BANNERS.length) % BANNERS.length)}

@@ -7,6 +7,7 @@ import Lobby from "./pages/Lobby";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Admin from "./pages/Admin";
+import Bonus from "./pages/Bonus";
 import NotFound from "./pages/not-found";
 
 const queryClient = new QueryClient({
@@ -51,6 +52,7 @@ function Router() {
       <Route path="/login">{() => <GuestRoute component={Login} />}</Route>
       <Route path="/register">{() => <GuestRoute component={Register} />}</Route>
       <Route path="/admin">{() => <AdminRoute component={Admin} />}</Route>
+      <Route path="/bonus">{() => <ProtectedRoute component={Bonus} />}</Route>
       <Route path="/">{() => <ProtectedRoute component={Lobby} />}</Route>
       <Route component={NotFound} />
     </Switch>

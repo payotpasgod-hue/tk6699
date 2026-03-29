@@ -1,23 +1,69 @@
 import { useLobbyStore } from "@/store/use-lobby-store";
 import { clsx } from "clsx";
+import { useState, useCallback } from "react";
 
-const PROVIDER_LOGOS: Record<string, string> = {
-  JILI: "/images/providers/jili.png",
-  Pragmatic: "/images/providers/pragmatic-play.png",
-  "Pragmatic Live": "/images/providers/pragmatic-play.png",
-  "Pragmatic Mini": "/images/providers/pragmatic-play.png",
-  PGSoft: "/images/providers/pgsoft.png",
-  Evoplay: "/images/providers/evoplay.png",
-  Habanero: "/images/providers/habanero.png",
-  CQ9: "/images/providers/cq9.png",
-  "CQ9 Fishing": "/images/providers/cq9.png",
-  Spribe: "/images/providers/spribe.png",
-  Aviator: "/images/providers/spribe.png",
-  JDB: "/images/providers/jdb.png",
-  "JDB Fishing": "/images/providers/jdb.png",
-  Hacksaw: "/images/providers/hacksaw.png",
-  "Micro Gaming": "/images/providers/micro-gaming.png",
+const PROVIDER_LOGO_MAP: Record<string, string> = {
+  "slot-jili": "https://cdn.softswiss.net/i/s2/187/jili.png",
+  "slot-pragmatic": "https://cdn.softswiss.net/i/s2/155/pragmaticplay.png",
+  "casino-pragmatic": "https://cdn.softswiss.net/i/s2/155/pragmaticplay.png",
+  "mini-pragmatic": "https://cdn.softswiss.net/i/s2/155/pragmaticplay.png",
+  "slot-pgsoft": "https://cdn.softswiss.net/i/s2/173/pgsoft.png",
+  "slot-evoplay": "https://cdn.softswiss.net/i/s2/139/evoplay.png",
+  "slot-habanero": "https://cdn.softswiss.net/i/s2/140/habanero.png",
+  "slot-cq9": "https://cdn.softswiss.net/i/s2/186/cq9.png",
+  "fishing-cq9": "https://cdn.softswiss.net/i/s2/186/cq9.png",
+  "mini-spribe": "https://cdn.softswiss.net/i/s2/169/spribe.png",
+  "mini-aviator": "https://cdn.softswiss.net/i/s2/169/spribe.png",
+  "slot-jdb": "https://cdn.softswiss.net/i/s2/188/jdb.png",
+  "fishing-jdb": "https://cdn.softswiss.net/i/s2/188/jdb.png",
+  "slot-hacksaw": "https://cdn.softswiss.net/i/s2/180/hacksawgaming.png",
+  "casino-micro": "https://cdn.softswiss.net/i/s2/108/microgaming.png",
+  "slot-booongo": "https://cdn.softswiss.net/i/s2/147/booongo.png",
+  "casino-ezugi": "https://cdn.softswiss.net/i/s2/126/ezugi.png",
+  "slot-playson": "https://cdn.softswiss.net/i/s2/137/playson.png",
+  "slot-egt": "https://cdn.softswiss.net/i/s2/142/egt.png",
+  "slot-novomatic": "https://cdn.softswiss.net/i/s2/109/novomatic.png",
+  "slot-3oaks": "https://cdn.softswiss.net/i/s2/185/3oaks.png",
+  "slot-tada": "https://cdn.softswiss.net/i/s2/191/tada.png",
+  "slot-fachai": "https://cdn.softswiss.net/i/s2/189/fachai.png",
+  "slot-popok": "https://cdn.softswiss.net/i/s2/167/popok.png",
+  "slot-mascot": "https://cdn.softswiss.net/i/s2/138/mascot.png",
+  "casino-sa": "https://cdn.softswiss.net/i/s2/124/sagaming.png",
+  "slot-ka": "https://cdn.softswiss.net/i/s2/190/kagaming.png",
+  "slot-nolimitcity": "https://cdn.softswiss.net/i/s2/160/nolimitcity.png",
+  "mini-bgaming": "https://cdn.softswiss.net/i/s2/145/bgaming.png",
+  "mini-inout": "https://cdn.softswiss.net/i/s2/156/inout.png",
+  "slot-dreamtech": "https://cdn.softswiss.net/i/s2/154/dreamtech.png",
+  "slot-rubyplay": "https://cdn.softswiss.net/i/s2/176/rubyplay.png",
+  "slot-amusnet": "https://cdn.softswiss.net/i/s2/122/amusnet.png",
+  "slot-popiplay": "https://cdn.softswiss.net/i/s2/177/popiplay.png",
+  "slot-wg": "https://cdn.softswiss.net/i/s2/184/worldmatch.png",
 };
+
+function ProviderLogo({ vendorCode, name }: { vendorCode: string; name: string }) {
+  const [imgFailed, setImgFailed] = useState(false);
+  const logoUrl = PROVIDER_LOGO_MAP[vendorCode];
+
+  const handleError = useCallback(() => setImgFailed(true), []);
+
+  if (!logoUrl || imgFailed) {
+    return (
+      <span className="w-4 h-4 rounded-sm bg-white/10 flex items-center justify-center text-[8px] font-bold text-white/40 flex-shrink-0">
+        {name.charAt(0)}
+      </span>
+    );
+  }
+
+  return (
+    <img
+      src={logoUrl}
+      alt={name}
+      className="w-4 h-4 rounded-sm object-contain flex-shrink-0"
+      onError={handleError}
+      loading="lazy"
+    />
+  );
+}
 
 export function ProviderChips() {
   const { vendors, games, selectedVendorCode, setFilters } = useLobbyStore();
@@ -52,8 +98,6 @@ export function ProviderChips() {
           const count = vendorGameCounts[vendor.vendorCode] || 0;
           if (count === 0) return null;
 
-          const logoSrc = PROVIDER_LOGOS[vendor.name];
-
           return (
             <button
               key={vendor.vendorCode}
@@ -65,9 +109,7 @@ export function ProviderChips() {
                   : "bg-white/[0.03] text-white/30 border-white/5 hover:bg-white/5 hover:text-white/50"
               )}
             >
-              {logoSrc && (
-                <img src={logoSrc} alt={vendor.name} className="w-4 h-4 rounded-sm object-contain" />
-              )}
+              <ProviderLogo vendorCode={vendor.vendorCode} name={vendor.name} />
               {vendor.name}
               <span className="ml-0.5 text-[10px] opacity-50">{count}</span>
             </button>

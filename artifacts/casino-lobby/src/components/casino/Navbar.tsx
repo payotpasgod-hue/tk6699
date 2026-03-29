@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Wallet, RefreshCw, LogOut, Shield, Search, X, Menu, User, Bell } from "lucide-react";
+import { Wallet, RefreshCw, LogOut, Shield, Search, X, Menu, User, Gift } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuthStore } from "@/store/use-auth-store";
@@ -65,6 +65,15 @@ export function Navbar() {
                   <RefreshCw className="w-3 h-3 text-amber-400/60" />
                 </button>
               </div>
+
+              <button
+                onClick={() => setLocation("/bonus")}
+                className="hidden sm:flex items-center gap-1.5 h-8 px-3 rounded-lg bg-white/5 hover:bg-amber-500/10 border border-white/5 hover:border-amber-500/20 transition-all relative"
+              >
+                <Gift className="w-3.5 h-3.5 text-amber-400" />
+                <span className="text-xs font-semibold text-white/70">Bonus</span>
+                <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+              </button>
 
               <Button
                 size="sm"
@@ -134,6 +143,14 @@ export function Navbar() {
                 <RefreshCw className="w-3 h-3" /> Refresh
               </button>
             </div>
+
+            <button
+              onClick={() => { setShowMobileMenu(false); setLocation("/bonus"); }}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 transition-colors"
+            >
+              <Gift className="w-4 h-4 text-amber-400" />
+              <span className="text-sm text-amber-400 font-semibold">Bonus Center</span>
+            </button>
 
             {isAdmin() && (
               <button

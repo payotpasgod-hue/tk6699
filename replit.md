@@ -30,7 +30,7 @@ artifacts-monorepo/
 │   │       └── oroplay.ts  # OroPlay proxy + seamless wallet callbacks
 │   └── casino-lobby/       # React casino lobby UI
 │       └── src/
-│           ├── pages/      # Lobby, Login, Register, Admin
+│           ├── pages/      # Lobby, Login, Register, Admin, Bonus
 │           ├── components/ # Navbar, CategoryTabs, PromoBanner, GameRow, GameGrid, ProviderChips, BottomNav, RewardsBonusSection, etc.
 │           ├── store/      # use-auth-store, use-lobby-store
 │           └── lib/        # api.ts (auth-aware fetch)
@@ -116,10 +116,10 @@ OroPlay → Relay VPS → Replit App (seamless wallet callbacks)
 ## UI Assets
 
 - **Company logo**: `public/images/logo.png` — AI-generated TK6699 logo with golden crown
-- **Promo banners**: `public/images/promo-*.png` — Welcome, VIP, Slots, Cashback banners for carousel
-- **Provider logos**: `public/images/providers/*.png` — JILI, Pragmatic, PGSoft, Evoplay, Habanero, CQ9, Spribe, JDB, Hacksaw, Micro Gaming
-- **UI icons**: `public/images/rewards-icon.png`, `public/images/bonus-icon.png`
+- **Promo banners**: `public/images/promo-*.png` — Welcome, VIP, Slots, Cashback banners for carousel (image-only, no text overlay)
+- **Provider logos**: Real logos from cdn.softswiss.net CDN with text-initial fallback
 - **Login/Register**: Google sign-in button (placeholder — needs Google OAuth credentials to activate)
+- **Bonus page** (`/bonus`): Gift Box (9 mystery boxes), Lucky Spin wheel, Daily Login Rewards, Hourly Bonus, Missions, VIP Tiers, Referral System
 
 ## Color Theme
 

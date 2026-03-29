@@ -6,7 +6,6 @@ import { GameRow } from "@/components/casino/GameRow";
 import { ProviderChips } from "@/components/casino/ProviderChips";
 import { GameGrid } from "@/components/casino/GameGrid";
 import { GameLauncher } from "@/components/casino/GameLauncher";
-import { RewardsBonusSection } from "@/components/casino/RewardsBonusSection";
 import { BottomNav } from "@/components/casino/BottomNav";
 import { useLobbyStore } from "@/store/use-lobby-store";
 import { useAuthStore } from "@/store/use-auth-store";
@@ -117,8 +116,6 @@ export default function Lobby() {
         {!showBrowseMode && (
           <>
             <PromoBanner />
-
-            <RewardsBonusSection />
 
             {popularGames.length > 0 && (
               <GameRow
