@@ -29,4 +29,4 @@ timeoutMs = 20000
 
 [userenv.shared]
 OROPLAY_CLIENT_ID = "tk6699"
-OROPLAY_API_ENDPOINT = "https://bs.sxvwlkohlv.com/api/v2"
+OROPLAY_API_ENDPOINT = "http://193.23.221.170:9000/api/v2"
