@@ -31,7 +31,7 @@ artifacts-monorepo/
 │   └── casino-lobby/       # React casino lobby UI
 │       └── src/
 │           ├── pages/      # Lobby, Login, Register, Admin
-│           ├── components/ # Navbar, Hero, SearchFilters, GameGrid, etc.
+│           ├── components/ # Navbar, CategoryTabs, PromoBanner, GameRow, GameGrid, ProviderChips, BottomNav, RewardsBonusSection, etc.
 │           ├── store/      # use-auth-store, use-lobby-store
 │           └── lib/        # api.ts (auth-aware fetch)
 ├── lib/
@@ -112,6 +112,20 @@ OroPlay → Relay VPS → Replit App (seamless wallet callbacks)
 - `OROPLAY_CLIENT_SECRET` — OroPlay client secret
 - `OROPLAY_API_ENDPOINT` — Relay VPS endpoint
 - `SESSION_SECRET` — Session signing secret
+
+## UI Assets
+
+- **Company logo**: `public/images/logo.png` — AI-generated TK6699 logo with golden crown
+- **Promo banners**: `public/images/promo-*.png` — Welcome, VIP, Slots, Cashback banners for carousel
+- **Provider logos**: `public/images/providers/*.png` — JILI, Pragmatic, PGSoft, Evoplay, Habanero, CQ9, Spribe, JDB, Hacksaw, Micro Gaming
+- **UI icons**: `public/images/rewards-icon.png`, `public/images/bonus-icon.png`
+- **Login/Register**: Google sign-in button (placeholder — needs Google OAuth credentials to activate)
+
+## Color Theme
+
+- **Background**: Dark navy #070b14, #0a0e1a, #0d1220, #111827
+- **Primary accent**: Amber/gold #f59e0b (amber-500), #fbbf24 (amber-400)
+- **Secondary**: Orange #f97316 (orange-500)
 
 ## Dev Commands
 

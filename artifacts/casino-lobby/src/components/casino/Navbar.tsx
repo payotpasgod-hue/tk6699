@@ -43,9 +43,7 @@ export function Navbar() {
           <div className="flex items-center justify-between h-14">
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2 cursor-pointer" onClick={() => setLocation("/")}>
-                <div className="relative w-9 h-9 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg shadow-amber-500/20">
-                  <span className="text-white font-display font-bold text-xs">TK</span>
-                </div>
+                <img src="/images/logo.png" alt="TK6699" className="w-9 h-9 rounded-lg object-cover shadow-lg shadow-amber-500/20" />
                 <h1 className="text-lg font-display font-bold text-white tracking-wide hidden sm:block">
                   TK<span className="text-amber-400">6699</span>
                 </h1>
