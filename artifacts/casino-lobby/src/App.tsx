@@ -1,8 +1,12 @@
-import { Switch, Route, Router as WouterRouter } from "wouter";
+import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { useAuthStore } from "@/store/use-auth-store";
 import Lobby from "./pages/Lobby";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
+import Admin from "./pages/Admin";
 import NotFound from "./pages/not-found";
 
 const queryClient = new QueryClient({
@@ -14,10 +18,40 @@ const queryClient = new QueryClient({
   },
 });
 
+function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
+  const { token, user } = useAuthStore();
+  if (!token || !user) {
+    return <Redirect to="/login" />;
+  }
+  return <Component />;
+}
+
+function AdminRoute({ component: Component }: { component: React.ComponentType }) {
+  const { token, user } = useAuthStore();
+  if (!token || !user) {
+    return <Redirect to="/login" />;
+  }
+  if (user.role !== "admin") {
+    return <Redirect to="/" />;
+  }
+  return <Component />;
+}
+
+function GuestRoute({ component: Component }: { component: React.ComponentType }) {
+  const { token, user } = useAuthStore();
+  if (token && user) {
+    return <Redirect to="/" />;
+  }
+  return <Component />;
+}
+
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={Lobby} />
+      <Route path="/login">{() => <GuestRoute component={Login} />}</Route>
+      <Route path="/register">{() => <GuestRoute component={Register} />}</Route>
+      <Route path="/admin">{() => <AdminRoute component={Admin} />}</Route>
+      <Route path="/">{() => <ProtectedRoute component={Lobby} />}</Route>
       <Route component={NotFound} />
     </Switch>
   );

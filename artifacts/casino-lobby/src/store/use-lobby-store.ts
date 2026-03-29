@@ -3,18 +3,6 @@ import { persist } from "zustand/middleware";
 import type { Game, Vendor } from "@workspace/api-client-react";
 
 interface LobbyState {
-  apiEndpoint: string;
-  clientId: string;
-  clientSecret: string;
-  isConnected: boolean;
-  setApiConfig: (config: { apiEndpoint?: string; clientId?: string; clientSecret?: string }) => void;
-  setIsConnected: (status: boolean) => void;
-
-  playerCode: string;
-  balance: number;
-  currency: string;
-  setPlayerSession: (session: { playerCode?: string; balance?: number; currency?: string }) => void;
-
   vendors: Vendor[];
   games: Game[];
   setVendors: (vendors: Vendor[]) => void;
@@ -42,18 +30,6 @@ interface LobbyState {
 export const useLobbyStore = create<LobbyState>()(
   persist(
     (set) => ({
-      apiEndpoint: "",
-      clientId: "",
-      clientSecret: "",
-      isConnected: false,
-      setApiConfig: (config) => set((state) => ({ ...state, ...config })),
-      setIsConnected: (status) => set({ isConnected: status }),
-
-      playerCode: "test_player_001",
-      balance: 0,
-      currency: "BDT",
-      setPlayerSession: (session) => set((state) => ({ ...state, ...session })),
-
       vendors: [],
       games: [],
       setVendors: (vendors) => set({ vendors }),
@@ -95,12 +71,9 @@ export const useLobbyStore = create<LobbyState>()(
       setGamesPage: (page) => set({ gamesPage: page }),
     }),
     {
-      name: "casino-lobby-storage",
-      partialize: (state) => ({ 
-        apiEndpoint: state.apiEndpoint, 
-        clientId: state.clientId,
-        playerCode: state.playerCode,
-        language: state.language
+      name: "tk6699-lobby",
+      partialize: (state) => ({
+        language: state.language,
       }),
     }
   )

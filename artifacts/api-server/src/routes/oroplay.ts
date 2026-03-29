@@ -1,6 +1,10 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import * as fs from "fs";
 import * as path from "path";
+import { db } from "@workspace/db";
+import { usersTable, transactionsTable } from "@workspace/db/schema";
+import { eq, sql } from "drizzle-orm";
+import { authMiddleware, adminMiddleware } from "./auth";
 
 const router: IRouter = Router();
 
@@ -8,9 +12,6 @@ let cachedToken: string | null = null;
 let tokenExpiry: number = 0;
 let tokenPromise: Promise<string> | null = null;
 
-const DEFAULT_CURRENCY = "BDT";
-
-const playerBalances: Record<string, { balance: number; currency: string }> = {};
 const processedTransactions = new Set<string>();
 
 const CACHE_DIR = path.join(process.cwd(), "data");
@@ -179,6 +180,26 @@ async function oroplayRequest(
   return result;
 }
 
+async function atomicBalanceUpdate(userId: number, amount: number, allowNegative: boolean = false): Promise<number | null> {
+  if (amount < 0 && !allowNegative) {
+    const result = await db.execute(sql`
+      UPDATE users SET balance = balance + ${amount}, updated_at = NOW()
+      WHERE id = ${userId} AND balance >= ${Math.abs(amount)}
+      RETURNING balance AS new_balance
+    `);
+    if (result.rows.length === 0) return null;
+    return Number(result.rows[0].new_balance);
+  }
+
+  const result = await db.execute(sql`
+    UPDATE users SET balance = balance + ${amount}, updated_at = NOW()
+    WHERE id = ${userId}
+    RETURNING balance AS new_balance
+  `);
+  if (result.rows.length === 0) return null;
+  return Number(result.rows[0].new_balance);
+}
+
 router.get("/oroplay/config", (_req: Request, res: Response) => {
   const { clientId, apiEndpoint } = getEnvConfig();
   res.json({
@@ -190,24 +211,16 @@ router.get("/oroplay/config", (_req: Request, res: Response) => {
 
 router.post("/oroplay/token", async (req: Request, res: Response) => {
   try {
-    const { clientId, clientSecret, apiEndpoint } = req.body as { clientId?: string; clientSecret?: string; apiEndpoint?: string };
     const env = getEnvConfig();
-    const id = (clientId && clientId !== "env") ? clientId : env.clientId;
-    const secret = (clientSecret && clientSecret !== "env") ? clientSecret : env.clientSecret;
-    const endpoint = (apiEndpoint && apiEndpoint !== "env") ? apiEndpoint.replace(/\/+$/, "") : env.apiEndpoint;
-
-    if (!id || !secret) {
-      res.status(400).json({ success: false, message: "Missing clientId or clientSecret" });
+    if (!env.clientId || !env.clientSecret) {
+      res.status(400).json({ success: false, message: "API credentials not configured" });
       return;
     }
-
     cachedToken = null;
     tokenExpiry = 0;
-
-    const result = await fetchToken(id, secret, endpoint);
+    const result = await fetchToken(env.clientId, env.clientSecret, env.apiEndpoint);
     cachedToken = result.token;
     tokenExpiry = result.expiration;
-
     res.json({ success: true });
   } catch (err) {
     req.log.error({ err }, "Token creation failed");
@@ -262,24 +275,26 @@ router.post("/oroplay/game/detail", async (req: Request, res: Response) => {
   }
 });
 
-router.post("/oroplay/game/launch", async (req: Request, res: Response) => {
+router.post("/oroplay/game/launch", authMiddleware, async (req: Request, res: Response) => {
   try {
     const env = getEnvConfig();
     if (!env.clientId || !env.clientSecret) {
       res.status(400).json({ success: false, message: "API credentials not configured" });
       return;
     }
-    const { vendorCode, gameCode, userCode, language, lobbyUrl, theme } = req.body as {
+
+    const user = (req as any).user;
+    const { vendorCode, gameCode, language, lobbyUrl, theme } = req.body as {
       vendorCode: string;
       gameCode: string;
-      userCode: string;
       language?: string;
       lobbyUrl?: string;
       theme?: number;
     };
 
-    if (!playerBalances[userCode]) {
-      playerBalances[userCode] = { balance: 0, currency: DEFAULT_CURRENCY };
+    if (Number(user.balance) <= 0) {
+      res.status(400).json({ success: false, message: "Insufficient balance" });
+      return;
     }
 
     const data = await oroplayRequest(
@@ -288,7 +303,7 @@ router.post("/oroplay/game/launch", async (req: Request, res: Response) => {
       {
         vendorCode,
         gameCode,
-        userCode,
+        userCode: user.userCode,
         language: language || "en",
         lobbyUrl: lobbyUrl || "",
         ...(theme !== undefined ? { theme } : {}),
@@ -315,7 +330,7 @@ router.get("/oroplay/cache", (_req: Request, res: Response) => {
   res.json({ success: true, ...memoryCache });
 });
 
-router.post("/oroplay/cache/refresh", async (req: Request, res: Response) => {
+router.post("/oroplay/cache/refresh", authMiddleware, adminMiddleware, async (req: Request, res: Response) => {
   try {
     const env = getEnvConfig();
     if (!env.clientId || !env.clientSecret) {
@@ -365,111 +380,19 @@ router.post("/oroplay/cache/refresh", async (req: Request, res: Response) => {
   }
 });
 
-router.post("/oroplay/player/create", (req: Request, res: Response) => {
-  try {
-    const { userCode } = req.body as { userCode: string };
-    if (!userCode) {
-      res.status(400).json({ success: false, message: "Missing userCode" });
-      return;
-    }
-
-    if (!playerBalances[userCode]) {
-      playerBalances[userCode] = { balance: 0, currency: DEFAULT_CURRENCY };
-      req.log.info({ userCode }, "Player created");
-      res.json({ success: true, message: `Player ${userCode} created` });
-    } else {
-      res.json({ success: true, message: `Player ${userCode} already exists` });
-    }
-  } catch (err) {
-    req.log.error({ err }, "Player create failed");
-    res.status(400).json({ success: false, message: err instanceof Error ? err.message : "Failed to create player" });
-  }
+router.get("/oroplay/player/balance", authMiddleware, async (req: Request, res: Response) => {
+  const user = (req as any).user;
+  res.json({ success: true, balance: Number(user.balance) });
 });
 
-router.post("/oroplay/player/balance", (req: Request, res: Response) => {
-  try {
-    const { userCode } = req.body as { userCode: string };
-    if (!userCode) {
-      res.status(400).json({ success: false, message: "Missing userCode" });
-      return;
-    }
-
-    if (!playerBalances[userCode]) {
-      playerBalances[userCode] = { balance: 0, currency: DEFAULT_CURRENCY };
-    }
-
-    res.json({ success: true, message: playerBalances[userCode].balance });
-  } catch (err) {
-    req.log.error({ err }, "Balance fetch failed");
-    res.status(400).json({ success: false, message: err instanceof Error ? err.message : "Failed to fetch balance" });
-  }
-});
-
-router.post("/oroplay/player/deposit", (req: Request, res: Response) => {
-  try {
-    const { userCode, amount } = req.body as { userCode: string; amount: number };
-    if (!userCode || !amount || amount <= 0) {
-      res.status(400).json({ success: false, message: "Missing userCode or invalid amount" });
-      return;
-    }
-
-    if (!playerBalances[userCode]) {
-      playerBalances[userCode] = { balance: 0, currency: DEFAULT_CURRENCY };
-    }
-
-    playerBalances[userCode].balance += amount;
-    req.log.info({ userCode, amount, newBalance: playerBalances[userCode].balance }, "Deposit processed");
-    res.json({ success: true, message: playerBalances[userCode].balance });
-  } catch (err) {
-    req.log.error({ err }, "Deposit failed");
-    res.status(400).json({ success: false, message: err instanceof Error ? err.message : "Failed to deposit" });
-  }
-});
-
-router.post("/oroplay/player/withdraw", (req: Request, res: Response) => {
-  try {
-    const { userCode, amount } = req.body as { userCode: string; amount: number };
-    if (!userCode) {
-      res.status(400).json({ success: false, message: "Missing userCode" });
-      return;
-    }
-    if (amount !== -1 && (amount === undefined || amount <= 0)) {
-      res.status(400).json({ success: false, message: "Invalid amount: must be positive or -1 for withdraw-all" });
-      return;
-    }
-
-    if (!playerBalances[userCode]) {
-      playerBalances[userCode] = { balance: 0, currency: DEFAULT_CURRENCY };
-    }
-
-    if (amount === -1) {
-      playerBalances[userCode].balance = 0;
-    } else {
-      if (playerBalances[userCode].balance < amount) {
-        res.status(400).json({ success: false, message: "Insufficient balance" });
-        return;
-      }
-      playerBalances[userCode].balance -= amount;
-    }
-
-    req.log.info({ userCode, amount, newBalance: playerBalances[userCode].balance }, "Withdraw processed");
-    res.json({ success: true, message: playerBalances[userCode].balance });
-  } catch (err) {
-    req.log.error({ err }, "Withdraw failed");
-    res.status(400).json({ success: false, message: err instanceof Error ? err.message : "Failed to withdraw" });
-  }
-});
-
-router.get("/oroplay/agent/balance", async (req: Request, res: Response) => {
+router.get("/oroplay/agent/balance", authMiddleware, adminMiddleware, async (req: Request, res: Response) => {
   try {
     const env = getEnvConfig();
     if (!env.clientId || !env.clientSecret) {
       res.status(400).json({ success: false, message: "API credentials not configured" });
       return;
     }
-
     const data = await oroplayRequest("GET", "/agent/balance", null, env.clientId, env.clientSecret, env.apiEndpoint) as { success: boolean; message?: number; errorCode?: number };
-
     res.json({ success: true, message: typeof data.message === "number" ? data.message : 0 });
   } catch (err) {
     req.log.error({ err }, "Agent balance fetch failed");
@@ -485,7 +408,8 @@ function verifyCallbackAuth(req: Request, res: Response): boolean {
   }
   const { clientId, clientSecret } = getEnvConfig();
   if (!clientId || !clientSecret) {
-    return true;
+    res.status(500).json({ success: false, errorCode: 500, message: "Callback auth not configured" });
+    return false;
   }
   try {
     const decoded = Buffer.from(authHeader.slice(6), "base64").toString("utf-8");
@@ -501,7 +425,7 @@ function verifyCallbackAuth(req: Request, res: Response): boolean {
   return true;
 }
 
-router.post("/balance", (req: Request, res: Response) => {
+router.post("/balance", async (req: Request, res: Response) => {
   if (!verifyCallbackAuth(req, res)) return;
   try {
     const { userCode } = req.body as { userCode?: string };
@@ -512,53 +436,43 @@ router.post("/balance", (req: Request, res: Response) => {
       return;
     }
 
-    if (!playerBalances[userCode]) {
-      playerBalances[userCode] = { balance: 0, currency: DEFAULT_CURRENCY };
+    const users = await db.select().from(usersTable).where(eq(usersTable.userCode, userCode)).limit(1);
+    if (users.length === 0) {
+      res.json({ success: true, message: 0, errorCode: 0 });
+      return;
     }
 
-    res.json({
-      success: true,
-      message: playerBalances[userCode].balance,
-      errorCode: 0,
-    });
+    res.json({ success: true, message: Number(users[0].balance), errorCode: 0 });
   } catch (err) {
     req.log.error({ err }, "Balance callback error");
     res.status(500).json({ success: false, errorCode: 500, message: "Internal error" });
   }
 });
 
-router.post("/transaction", (req: Request, res: Response) => {
+router.post("/transaction", async (req: Request, res: Response) => {
   if (!verifyCallbackAuth(req, res)) return;
   try {
     const {
       userCode,
       vendorCode,
       gameCode,
-      historyId,
       roundId,
-      gameType,
       transactionCode,
       isFinished,
       isCanceled,
       amount,
-      detail,
-      createdAt,
     } = req.body as {
       userCode?: string;
       vendorCode?: string;
       gameCode?: string;
-      historyId?: number;
       roundId?: string;
-      gameType?: number;
       transactionCode?: string;
       isFinished?: boolean;
       isCanceled?: boolean;
       amount?: number;
-      detail?: string;
-      createdAt?: string;
     };
 
-    req.log.info({ userCode, vendorCode, gameCode, transactionCode, amount, roundId, isFinished, isCanceled, historyId }, "Seamless wallet: transaction callback");
+    req.log.info({ userCode, vendorCode, gameCode, transactionCode, amount, roundId, isFinished, isCanceled }, "Seamless wallet: transaction callback");
 
     if (!userCode || amount === undefined || !transactionCode) {
       res.status(400).json({ success: false, errorCode: 400, message: "Missing required fields" });
@@ -566,43 +480,67 @@ router.post("/transaction", (req: Request, res: Response) => {
     }
 
     if (processedTransactions.has(transactionCode)) {
-      const player = playerBalances[userCode];
-      res.json({
-        success: false,
-        errorCode: 6,
-        message: player ? player.balance : 0,
-      });
+      const users = await db.select().from(usersTable).where(eq(usersTable.userCode, userCode)).limit(1);
+      res.json({ success: false, errorCode: 6, message: users.length > 0 ? Number(users[0].balance) : 0 });
       return;
     }
 
-    if (!playerBalances[userCode]) {
-      playerBalances[userCode] = { balance: 0, currency: DEFAULT_CURRENCY };
-    }
-
-    const player = playerBalances[userCode];
-
-    if (isCanceled) {
-      if (amount < 0) {
-        player.balance += Math.abs(amount);
-      }
+    const existingTxn = await db.select({ id: transactionsTable.id }).from(transactionsTable).where(eq(transactionsTable.transactionCode, transactionCode)).limit(1);
+    if (existingTxn.length > 0) {
       processedTransactions.add(transactionCode);
-      res.json({ success: true, message: player.balance, errorCode: 0 });
+      const users = await db.select().from(usersTable).where(eq(usersTable.userCode, userCode)).limit(1);
+      res.json({ success: false, errorCode: 6, message: users.length > 0 ? Number(users[0].balance) : 0 });
       return;
     }
 
-    if (amount < 0) {
-      const betAmount = Math.abs(amount);
-      if (player.balance < betAmount) {
-        res.json({
-          success: false,
-          errorCode: 4,
-          message: player.balance,
-        });
+    const users = await db.select().from(usersTable).where(eq(usersTable.userCode, userCode)).limit(1);
+    if (users.length === 0) {
+      res.status(400).json({ success: false, errorCode: 2, message: "User not found" });
+      return;
+    }
+
+    const user = users[0];
+    let newBalance: number | null;
+
+    if (isCanceled && amount < 0) {
+      newBalance = await atomicBalanceUpdate(user.id, Math.abs(amount), true);
+    } else if (amount < 0) {
+      newBalance = await atomicBalanceUpdate(user.id, amount, false);
+      if (newBalance === null) {
+        const currentUser = await db.select().from(usersTable).where(eq(usersTable.id, user.id)).limit(1);
+        res.json({ success: false, errorCode: 4, message: currentUser.length > 0 ? Number(currentUser[0].balance) : 0 });
         return;
       }
-      player.balance -= betAmount;
     } else if (amount > 0) {
-      player.balance += amount;
+      newBalance = await atomicBalanceUpdate(user.id, amount, true);
+    } else {
+      newBalance = Number(user.balance);
+    }
+
+    if (newBalance === null) {
+      res.status(500).json({ success: false, errorCode: 500, message: "Balance update failed" });
+      return;
+    }
+
+    try {
+      await db.insert(transactionsTable).values({
+        userId: user.id,
+        type: isCanceled ? "cancel" : amount < 0 ? "bet" : "win",
+        amount: amount.toFixed(2),
+        balanceAfter: newBalance.toFixed(2),
+        transactionCode,
+        vendorCode: vendorCode || null,
+        gameCode: gameCode || null,
+        roundId: roundId || null,
+      });
+    } catch (insertErr: any) {
+      if (insertErr?.code === "23505") {
+        const currentUser = await db.select().from(usersTable).where(eq(usersTable.id, user.id)).limit(1);
+        processedTransactions.add(transactionCode);
+        res.json({ success: false, errorCode: 6, message: currentUser.length > 0 ? Number(currentUser[0].balance) : newBalance });
+        return;
+      }
+      throw insertErr;
     }
 
     processedTransactions.add(transactionCode);
@@ -614,35 +552,26 @@ router.post("/transaction", (req: Request, res: Response) => {
       }
     }
 
-    res.json({
-      success: true,
-      message: player.balance,
-      errorCode: 0,
-    });
+    res.json({ success: true, message: newBalance, errorCode: 0 });
   } catch (err) {
     req.log.error({ err }, "Transaction callback error");
     res.status(500).json({ success: false, errorCode: 500, message: "Internal error" });
   }
 });
 
-router.post("/batch-transactions", (req: Request, res: Response) => {
+router.post("/batch-transactions", async (req: Request, res: Response) => {
   if (!verifyCallbackAuth(req, res)) return;
   try {
     const { userCode, transactions } = req.body as {
       userCode?: string;
       transactions?: Array<{
-        userCode?: string;
         vendorCode?: string;
         gameCode?: string;
-        historyId?: number;
         roundId?: string;
-        gameType?: number;
         transactionCode?: string;
         isFinished?: boolean;
         isCanceled?: boolean;
         amount?: number;
-        detail?: string;
-        createdAt?: string;
       }>;
     };
 
@@ -653,11 +582,14 @@ router.post("/batch-transactions", (req: Request, res: Response) => {
       return;
     }
 
-    if (!playerBalances[userCode]) {
-      playerBalances[userCode] = { balance: 0, currency: DEFAULT_CURRENCY };
+    const users = await db.select().from(usersTable).where(eq(usersTable.userCode, userCode)).limit(1);
+    if (users.length === 0) {
+      res.status(400).json({ success: false, errorCode: 2, message: "User not found" });
+      return;
     }
 
-    const player = playerBalances[userCode];
+    const user = users[0];
+    let latestBalance = Number(user.balance);
 
     for (const txn of transactions) {
       const txnCode = txn.transactionCode;
@@ -665,35 +597,54 @@ router.post("/batch-transactions", (req: Request, res: Response) => {
         continue;
       }
 
-      const amount = txn.amount || 0;
-
-      if (txn.isCanceled) {
-        if (amount < 0) {
-          player.balance += Math.abs(amount);
+      if (txnCode) {
+        const existingTxn = await db.select({ id: transactionsTable.id }).from(transactionsTable).where(eq(transactionsTable.transactionCode, txnCode)).limit(1);
+        if (existingTxn.length > 0) {
+          processedTransactions.add(txnCode);
+          continue;
         }
-        if (txnCode) processedTransactions.add(txnCode);
+      }
+
+      const amount = txn.amount || 0;
+      let newBal: number | null;
+
+      if (txn.isCanceled && amount < 0) {
+        newBal = await atomicBalanceUpdate(user.id, Math.abs(amount), true);
+      } else if (amount < 0) {
+        newBal = await atomicBalanceUpdate(user.id, amount, false);
+        if (newBal === null) continue;
+      } else if (amount > 0) {
+        newBal = await atomicBalanceUpdate(user.id, amount, true);
+      } else {
         continue;
       }
 
-      if (amount < 0) {
-        const betAmount = Math.abs(amount);
-        if (player.balance >= betAmount) {
-          player.balance -= betAmount;
+      if (newBal !== null) {
+        latestBalance = newBal;
+        try {
+          await db.insert(transactionsTable).values({
+            userId: user.id,
+            type: txn.isCanceled ? "cancel" : amount < 0 ? "bet" : "win",
+            amount: amount.toFixed(2),
+            balanceAfter: newBal.toFixed(2),
+            transactionCode: txnCode || null,
+            vendorCode: txn.vendorCode || null,
+            gameCode: txn.gameCode || null,
+            roundId: txn.roundId || null,
+          });
+        } catch (insertErr: any) {
+          if (insertErr?.code === "23505") {
+            if (txnCode) processedTransactions.add(txnCode);
+            continue;
+          }
+          throw insertErr;
         }
-      } else if (amount > 0) {
-        player.balance += amount;
       }
 
-      if (txnCode) {
-        processedTransactions.add(txnCode);
-      }
+      if (txnCode) processedTransactions.add(txnCode);
     }
 
-    res.json({
-      success: true,
-      message: player.balance,
-      errorCode: 0,
-    });
+    res.json({ success: true, message: latestBalance, errorCode: 0 });
   } catch (err) {
     req.log.error({ err }, "Batch transactions callback error");
     res.status(500).json({ success: false, errorCode: 500, message: "Internal error" });

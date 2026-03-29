@@ -1,8 +1,8 @@
-# Workspace
+# TK6699 Casino Platform
 
 ## Overview
 
-pnpm workspace monorepo using TypeScript. Each package manages its own dependencies.
+Production casino platform (TK6699 branding) with phone-based auth, admin dashboard, and OroPlay game integration via relay VPS proxy. Currency: BDT (৳). Built as a pnpm workspace monorepo using TypeScript.
 
 ## Stack
 
@@ -12,129 +12,110 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **TypeScript version**: 5.9
 - **API framework**: Express 5
 - **Database**: PostgreSQL + Drizzle ORM
+- **Frontend**: React + Vite + Tailwind + shadcn/ui
+- **State**: Zustand (persisted)
+- **Auth**: Phone + password, bcryptjs hashing, bearer token sessions
 - **Validation**: Zod (`zod/v4`), `drizzle-zod`
-- **API codegen**: Orval (from OpenAPI spec)
-- **Build**: esbuild (CJS bundle)
+- **Build**: esbuild (API server), Vite (frontend)
 
 ## Structure
 
 ```text
 artifacts-monorepo/
-├── artifacts/              # Deployable applications
-│   ├── api-server/         # Express API server (OroPlay proxy)
-│   └── casino-lobby/       # Premium React casino lobby UI
-├── lib/                    # Shared libraries
-│   ├── api-spec/           # OpenAPI spec + Orval codegen config
+├── artifacts/
+│   ├── api-server/         # Express API server
+│   │   └── src/routes/
+│   │       ├── auth.ts     # Register/login/logout/me + session middleware
+│   │       ├── admin.ts    # User mgmt, deposit/withdraw, stats
+│   │       └── oroplay.ts  # OroPlay proxy + seamless wallet callbacks
+│   └── casino-lobby/       # React casino lobby UI
+│       └── src/
+│           ├── pages/      # Lobby, Login, Register, Admin
+│           ├── components/ # Navbar, Hero, SearchFilters, GameGrid, etc.
+│           ├── store/      # use-auth-store, use-lobby-store
+│           └── lib/        # api.ts (auth-aware fetch)
+├── lib/
+│   ├── db/                 # Drizzle ORM schema (users, sessions, transactions)
+│   ├── api-spec/           # OpenAPI spec + Orval codegen
 │   ├── api-client-react/   # Generated React Query hooks
-│   ├── api-zod/            # Generated Zod schemas from OpenAPI
-│   └── db/                 # Drizzle ORM schema + DB connection
-├── scripts/                # Utility scripts (single workspace package)
-│   └── src/                # Individual .ts scripts, run via `pnpm --filter @workspace/scripts run <script>`
-├── pnpm-workspace.yaml     # pnpm workspace (artifacts/*, lib/*, lib/integrations/*, scripts)
-├── tsconfig.base.json      # Shared TS options (composite, bundler resolution, es2022)
-├── tsconfig.json           # Root TS project references
-└── package.json            # Root package with hoisted devDeps
+│   └── api-zod/            # Generated Zod schemas
+├── scripts/                # Utility scripts
+└── exports/                # relay_main.py for VPS deployment
 ```
 
-## TypeScript & Composite Projects
+## Database Schema
 
-Every package extends `tsconfig.base.json` which sets `composite: true`. The root `tsconfig.json` lists all packages as project references. This means:
+### users
+- id, phone (unique), passwordHash, displayName, balance (numeric), currency (BDT), role (player/admin), userCode (unique), isActive, createdAt, updatedAt
 
-- **Always typecheck from the root** — run `pnpm run typecheck` (which runs `tsc --build --emitDeclarationOnly`). This builds the full dependency graph so that cross-package imports resolve correctly. Running `tsc` inside a single package will fail if its dependencies haven't been built yet.
-- **`emitDeclarationOnly`** — we only emit `.d.ts` files during typecheck; actual JS bundling is handled by esbuild/tsx/vite...etc, not `tsc`.
-- **Project references** — when package A depends on package B, A's `tsconfig.json` must list B in its `references` array. `tsc --build` uses this to determine build order and skip up-to-date packages.
+### sessions
+- id, userId, token (unique), expiresAt, createdAt
 
-## Root Scripts
+### transactions
+- id, userId, type (bet/win/cancel/admin_deposit/admin_withdraw), amount, balanceAfter, transactionCode (unique), vendorCode, gameCode, roundId, description, createdAt
 
-- `pnpm run build` — runs `typecheck` first, then recursively runs `build` in all packages that define it
-- `pnpm run typecheck` — runs `tsc --build --emitDeclarationOnly` using project references
+## API Routes
 
-## Packages
+### Auth (`/api/auth/*`)
+- `POST /register` — phone + password + displayName → token + user
+- `POST /login` — phone + password → token + user
+- `POST /logout` — invalidate session (requires auth)
+- `GET /me` — current user info (requires auth)
 
-### `artifacts/casino-lobby` (`@workspace/casino-lobby`)
+### Admin (`/api/admin/*`) — requires auth + admin role
+- `GET /users` — list all users with balances
+- `POST /deposit` — atomic deposit to user {userId, amount}
+- `POST /withdraw` — atomic withdraw from user {userId, amount}
+- `POST /toggle-user` — enable/disable user {userId, isActive}
+- `GET /transactions` — transaction history with pagination
+- `GET /stats` — total users, active users, total balance
 
-Premium React + Vite casino lobby frontend. Full OroPlay API-connected game testing platform.
+### OroPlay (`/api/oroplay/*`)
+- `POST /game/launch` — get game launch URL (requires auth)
+- `GET /player/balance` — get player balance (requires auth)
+- `POST /cache/refresh` — refresh game cache (requires admin)
+- `GET /agent/balance` — OroPlay agent balance (requires admin)
+- `GET /cache` — cached game data (public)
+- `GET /vendors`, `POST /games`, `POST /game/detail` — game catalog
 
-- Entry: `src/main.tsx` → `src/App.tsx` → `src/pages/Lobby.tsx`
-- Components: `src/components/casino/` — Navbar, Hero, StatsCards, ConfigPanel, ControlPanel, ProviderChips, GameGrid, GameDetailModal, GameLauncher
-- State: `src/store/use-lobby-store.ts` — Zustand store (persisted to localStorage, excludes secrets)
-- Theme: `src/index.css` — Luxury dark casino theme (deep midnight navy, violet, cyan, gold)
-- All API calls proxy through `/api/oroplay/*` on the backend — never directly to OroPlay
-- API credentials can be set via env vars (`OROPLAY_CLIENT_ID`, `OROPLAY_CLIENT_SECRET`, `OROPLAY_API_ENDPOINT`) or entered in-app
+### Seamless Wallet Callbacks (`/api/*`) — Basic auth (clientId:clientSecret)
+- `POST /balance` — OroPlay queries player balance
+- `POST /transaction` — single transaction (bet/win/cancel)
+- `POST /batch-transactions` — batch transactions
 
-### `artifacts/api-server` (`@workspace/api-server`)
+## Security
 
-Express 5 API server. Routes live in `src/routes/` and use `@workspace/api-zod` for request and response validation and `@workspace/db` for persistence.
+- All balance mutations use atomic SQL (no read-modify-write races)
+- Transaction dedup via unique transactionCode + in-memory cache
+- Duplicate inserts caught via unique constraint (23505) → idempotent response
+- Callback auth fails closed (rejects if credentials not configured)
+- Admin endpoints require role="admin"
+- Session tokens: 30-day expiry, Bearer token in Authorization header
 
-- Entry: `src/index.ts` — reads `PORT`, starts Express
-- App setup: `src/app.ts` — mounts CORS, JSON/urlencoded parsing, routes at `/api`
-- Routes: `src/routes/index.ts` mounts sub-routers; `src/routes/health.ts` exposes `GET /health` (full path: `/api/health`)
-- OroPlay proxy routes: `src/routes/oroplay.ts` — token auth, vendor/game/player endpoints, seamless wallet callbacks
-- **OroPlay Integration API** (Our App → OroPlay via Relay):
-  - `POST /api/oroplay/token` — authenticate with OroPlay
-  - `GET /api/oroplay/vendors` — list game providers
-  - `POST /api/oroplay/games` — list games for vendor
-  - `POST /api/oroplay/game/detail` — get game detail
-  - `POST /api/oroplay/game/launch` — get game launch URL (`POST /game/launch-url` on OroPlay, uses `userCode`/`lobbyUrl`)
-  - `GET /api/oroplay/agent/balance` — get OroPlay agent balance
-  - `GET /api/oroplay/cache` / `POST /api/oroplay/cache/refresh` — game data cache
-- **Local Player Management** (entirely on our side, NOT on OroPlay):
-  - `POST /api/oroplay/player/create` — create player locally (in-memory)
-  - `POST /api/oroplay/player/balance` — get player balance (local)
-  - `POST /api/oroplay/player/deposit` — deposit funds (local)
-  - `POST /api/oroplay/player/withdraw` — withdraw funds (local; amount=-1 for withdraw-all)
-- **Seamless Wallet Callbacks** (OroPlay → Relay VPS → Our App):
-  - `POST /api/balance` — returns player balance (uses `userCode`)
-  - `POST /api/transaction` — processes transactions (uses `amount`: negative=bet, positive=win; `transactionCode` for dedup; `isFinished`/`isCanceled` flags)
-  - `POST /api/batch-transactions` — processes multiple transactions in one call
-- **Wallet mode**: Seamless wallet only. All player balances managed locally (in-memory). OroPlay calls our callbacks during gameplay. No Transfer API calls.
-- **Currency**: BDT (Bangladeshi Taka, symbol: ৳)
-- Depends on: `@workspace/db`, `@workspace/api-zod`
-- `pnpm --filter @workspace/api-server run dev` — run the dev server
-- `pnpm --filter @workspace/api-server run build` — production esbuild bundle (`dist/index.cjs`)
-- Build bundles an allowlist of deps (express, cors, pg, drizzle-orm, zod, etc.) and externalizes the rest
-
-### Network Architecture
+## Network Architecture
 
 ```
 Player → Replit App (this server)
-Replit App → Relay VPS (193.23.221.170:9000, whitelisted by OroPlay) → OroPlay API
+Replit App → Relay VPS (193.23.221.170:9000) → OroPlay API
 OroPlay → Relay VPS → Replit App (seamless wallet callbacks)
 ```
 
-- **Relay VPS script**: `exports/relay_main.py` — FastAPI proxy, deploy on VPS with `pip install fastapi httpx uvicorn && python relay_main.py`
-- **Env vars on relay**: `UPSTREAM_API_BASE` (OroPlay API), `APP_CALLBACK_BASE` (this Replit app URL)
-- **Env var on Replit**: `OROPLAY_API_ENDPOINT=http://193.23.221.170:9000/api/v2`
+- **Client ID**: tk6699
+- **Relay endpoint**: http://193.23.221.170:9000/api/v2
+- **Wallet mode**: Seamless (all balances in our DB)
+- **Currency**: BDT (৳)
 
-### `lib/db` (`@workspace/db`)
+## Environment Variables
 
-Database layer using Drizzle ORM with PostgreSQL. Exports a Drizzle client instance and schema models.
+- `DATABASE_URL` — PostgreSQL connection (auto-provided by Replit)
+- `OROPLAY_CLIENT_ID` — OroPlay client ID (tk6699)
+- `OROPLAY_CLIENT_SECRET` — OroPlay client secret
+- `OROPLAY_API_ENDPOINT` — Relay VPS endpoint
+- `SESSION_SECRET` — Session signing secret
 
-- `src/index.ts` — creates a `Pool` + Drizzle instance, exports schema
-- `src/schema/index.ts` — barrel re-export of all models
-- `src/schema/<modelname>.ts` — table definitions with `drizzle-zod` insert schemas (no models definitions exist right now)
-- `drizzle.config.ts` — Drizzle Kit config (requires `DATABASE_URL`, automatically provided by Replit)
-- Exports: `.` (pool, db, schema), `./schema` (schema only)
+## Dev Commands
 
-Production migrations are handled by Replit when publishing. In development, we just use `pnpm --filter @workspace/db run push`, and we fallback to `pnpm --filter @workspace/db run push-force`.
-
-### `lib/api-spec` (`@workspace/api-spec`)
-
-Owns the OpenAPI 3.1 spec (`openapi.yaml`) and the Orval config (`orval.config.ts`). Running codegen produces output into two sibling packages:
-
-1. `lib/api-client-react/src/generated/` — React Query hooks + fetch client
-2. `lib/api-zod/src/generated/` — Zod schemas
-
-Run codegen: `pnpm --filter @workspace/api-spec run codegen`
-
-### `lib/api-zod` (`@workspace/api-zod`)
-
-Generated Zod schemas from the OpenAPI spec (e.g. `HealthCheckResponse`). Used by `api-server` for response validation.
-
-### `lib/api-client-react` (`@workspace/api-client-react`)
-
-Generated React Query hooks and fetch client from the OpenAPI spec (e.g. `useHealthCheck`, `healthCheck`).
-
-### `scripts` (`@workspace/scripts`)
-
-Utility scripts package. Each script is a `.ts` file in `src/` with a corresponding npm script in `package.json`. Run scripts via `pnpm --filter @workspace/scripts run <script>`. Scripts can import any workspace package (e.g., `@workspace/db`) by adding it as a dependency in `scripts/package.json`.
+- `pnpm --filter @workspace/api-server run dev` — start API server
+- `pnpm --filter @workspace/casino-lobby run dev` — start frontend
+- `pnpm --filter @workspace/db run push` — push schema to DB
+- `pnpm run typecheck` — full project typecheck

@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { X, Play, Info, Server, Tag, Gamepad2, AlertTriangle, Loader2 } from "lucide-react";
+import { X, Play, Server, Tag, Gamepad2, AlertTriangle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { useAuthStore } from "@/store/use-auth-store";
 import { useLobbyStore } from "@/store/use-lobby-store";
-import { useLaunchGame } from "@workspace/api-client-react";
+import { apiRequest } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import type { Game, Vendor } from "@workspace/api-client-react";
 
@@ -32,12 +33,11 @@ interface GameDetailModalProps {
 }
 
 export function GameDetailModal({ game, vendor, open, onClose }: GameDetailModalProps) {
+  const { user } = useAuthStore();
   const store = useLobbyStore();
   const { toast } = useToast();
   const [isLaunching, setIsLaunching] = useState(false);
   const [launchError, setLaunchError] = useState<string | null>(null);
-
-  const { mutateAsync: launchGame } = useLaunchGame();
 
   if (!game) return null;
 
@@ -45,13 +45,13 @@ export function GameDetailModal({ game, vendor, open, onClose }: GameDetailModal
   const typeColor = vendor ? TYPE_COLORS[vendor.type] || "bg-white/10 text-white/60 border-white/10" : "";
 
   const handleLaunch = async () => {
-    if (!store.playerCode) {
-      toast({ variant: "destructive", title: "No Player", description: "Create a player first in the Wallet section." });
+    if (!user) {
+      toast({ variant: "destructive", title: "Not Logged In", description: "Please log in to play games." });
       return;
     }
 
-    if (store.balance <= 0) {
-      toast({ variant: "destructive", title: "No Balance", description: "Deposit funds before launching a game." });
+    if ((user.balance || 0) <= 0) {
+      toast({ variant: "destructive", title: "No Balance", description: "Contact admin to add funds to your account." });
       return;
     }
 
@@ -59,28 +59,27 @@ export function GameDetailModal({ game, vendor, open, onClose }: GameDetailModal
     setLaunchError(null);
 
     try {
-      const res = await launchGame({
-        data: {
+      const data = await apiRequest("/api/oroplay/game/launch", {
+        method: "POST",
+        body: JSON.stringify({
           vendorCode: game.vendorCode,
           gameCode: game.gameCode,
-          userCode: store.playerCode,
           language: store.language,
           lobbyUrl: window.location.href,
-        },
+        }),
       });
 
-      if (res.success && res.message) {
-        store.launchGame(res.message, game);
+      if (data.success && data.message) {
+        store.launchGame(data.message, game);
         onClose();
         setTimeout(() => {
           document.getElementById("game-launcher-area")?.scrollIntoView({ behavior: "smooth" });
         }, 300);
       } else {
-        throw new Error("No game URL returned from API");
+        throw new Error("No game URL returned");
       }
     } catch (err: any) {
-      const msg = err?.data?.message || err?.message || "Game launch endpoint not available for this API configuration.";
-      setLaunchError(msg);
+      setLaunchError(err.message || "Failed to launch game");
     } finally {
       setIsLaunching(false);
     }
@@ -90,7 +89,7 @@ export function GameDetailModal({ game, vendor, open, onClose }: GameDetailModal
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="bg-card/95 backdrop-blur-xl border-white/10 text-white p-0 max-w-lg overflow-hidden">
         <DialogTitle className="sr-only">{game.gameName}</DialogTitle>
-        <DialogDescription className="sr-only">Game details for {game.gameName} by {vendor?.name || game.vendorCode}</DialogDescription>
+        <DialogDescription className="sr-only">Game details for {game.gameName}</DialogDescription>
         <div className="relative">
           <div className="aspect-video w-full bg-gradient-to-br from-card to-black overflow-hidden relative">
             {game.thumbnail ? (
@@ -135,34 +134,24 @@ export function GameDetailModal({ game, vendor, open, onClose }: GameDetailModal
               <div className="bg-black/30 rounded-lg p-3 border border-white/5">
                 <div className="flex items-center gap-1.5 mb-1">
                   <Server className="w-3 h-3 text-muted-foreground" />
-                  <span className="text-[10px] text-muted-foreground uppercase font-semibold">Vendor Code</span>
+                  <span className="text-[10px] text-muted-foreground uppercase font-semibold">Provider</span>
                 </div>
-                <p className="text-sm font-mono text-white truncate">{game.vendorCode}</p>
+                <p className="text-sm text-white truncate">{vendor?.name || game.vendorCode}</p>
               </div>
               <div className="bg-black/30 rounded-lg p-3 border border-white/5">
                 <div className="flex items-center gap-1.5 mb-1">
                   <Tag className="w-3 h-3 text-muted-foreground" />
-                  <span className="text-[10px] text-muted-foreground uppercase font-semibold">Game Code</span>
+                  <span className="text-[10px] text-muted-foreground uppercase font-semibold">Type</span>
                 </div>
-                <p className="text-sm font-mono text-white truncate">{game.gameCode}</p>
+                <p className="text-sm text-white truncate">{typeLabel}</p>
               </div>
             </div>
-
-            {game.slug && game.slug !== game.gameCode && (
-              <div className="bg-black/30 rounded-lg p-3 border border-white/5">
-                <div className="flex items-center gap-1.5 mb-1">
-                  <Info className="w-3 h-3 text-muted-foreground" />
-                  <span className="text-[10px] text-muted-foreground uppercase font-semibold">Slug</span>
-                </div>
-                <p className="text-sm font-mono text-white">{game.slug}</p>
-              </div>
-            )}
 
             {launchError && (
               <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 flex items-start gap-2">
                 <AlertTriangle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
                 <div>
-                  <p className="text-xs font-semibold text-red-400 mb-0.5">Launch Not Available</p>
+                  <p className="text-xs font-semibold text-red-400 mb-0.5">Launch Failed</p>
                   <p className="text-xs text-red-400/80">{launchError}</p>
                 </div>
               </div>
@@ -179,7 +168,7 @@ export function GameDetailModal({ game, vendor, open, onClose }: GameDetailModal
                 ) : (
                   <Play className="w-4 h-4 mr-2" />
                 )}
-                {isLaunching ? "Launching..." : "Launch Game"}
+                {isLaunching ? "Launching..." : "Play Now"}
               </Button>
               <Button
                 variant="outline"

@@ -1,20 +1,18 @@
 import { X, ExternalLink, Maximize2, ShieldCheck, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLobbyStore } from "@/store/use-lobby-store";
+import { useAuthStore } from "@/store/use-auth-store";
 import { motion, AnimatePresence } from "framer-motion";
 
 export function GameLauncher() {
-  const { launchedGameUrl, launchedGameInfo, playerCode, closeGame } = useLobbyStore();
+  const { launchedGameUrl, launchedGameInfo, closeGame } = useLobbyStore();
+  const { user } = useAuthStore();
 
   if (!launchedGameUrl || !launchedGameInfo) return null;
 
-  const handleOpenNewTab = () => {
-    window.open(launchedGameUrl, '_blank');
-  };
-
   return (
     <AnimatePresence>
-      <motion.div 
+      <motion.div
         id="game-launcher-area"
         initial={{ opacity: 0, height: 0 }}
         animate={{ opacity: 1, height: "auto" }}
@@ -35,19 +33,19 @@ export function GameLauncher() {
                   <ShieldCheck className="w-3 h-3 text-green-400" />
                   <span>Secure Session</span>
                   <span className="w-1 h-1 rounded-full bg-white/20" />
-                  <span className="font-mono">{playerCode}</span>
-                  <span className="w-1 h-1 rounded-full bg-white/20" />
-                  <span className="font-mono text-muted-foreground/60">{launchedGameInfo.vendorCode}</span>
+                  <span>{user?.displayName}</span>
                 </div>
               </div>
             </div>
 
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={handleOpenNewTab} className="bg-white/5 border-white/10 text-xs">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.open(launchedGameUrl, "_blank")}
+                className="bg-white/5 border-white/10 text-xs"
+              >
                 <ExternalLink className="w-3.5 h-3.5 mr-1.5" /> Pop Out
-              </Button>
-              <Button variant="outline" size="sm" className="bg-white/5 border-white/10 text-xs hidden sm:flex">
-                <Maximize2 className="w-3.5 h-3.5 mr-1.5" /> Fullscreen
               </Button>
               <Button variant="destructive" size="sm" onClick={closeGame} className="text-xs ml-1">
                 <X className="w-3.5 h-3.5 mr-1.5" /> Close
@@ -62,8 +60,8 @@ export function GameLauncher() {
                 <p className="text-muted-foreground text-sm font-medium">Loading Game...</p>
               </div>
             </div>
-            <iframe 
-              src={launchedGameUrl} 
+            <iframe
+              src={launchedGameUrl}
               className="w-full h-full border-none relative z-10"
               allowFullScreen
               allow="autoplay; fullscreen; encrypted-media"
