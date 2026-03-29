@@ -12,17 +12,9 @@ import type { Game, Vendor } from "@workspace/api-client-react";
 const TYPE_LABELS: Record<number, string> = {
   1: "Live Casino",
   2: "Slot",
-  3: "Mini Game",
+  3: "Crash",
   4: "Fishing",
-  6: "Board Game",
-};
-
-const TYPE_COLORS: Record<number, string> = {
-  1: "bg-red-500/20 text-red-400 border-red-500/30",
-  2: "bg-purple-500/20 text-purple-400 border-purple-500/30",
-  3: "bg-blue-500/20 text-blue-400 border-blue-500/30",
-  4: "bg-cyan-500/20 text-cyan-400 border-cyan-500/30",
-  6: "bg-orange-500/20 text-orange-400 border-orange-500/30",
+  6: "Table Game",
 };
 
 interface GameDetailModalProps {
@@ -41,8 +33,7 @@ export function GameDetailModal({ game, vendor, open, onClose }: GameDetailModal
 
   if (!game) return null;
 
-  const typeLabel = vendor ? TYPE_LABELS[vendor.type] || "Unknown" : "Unknown";
-  const typeColor = vendor ? TYPE_COLORS[vendor.type] || "bg-white/10 text-white/60 border-white/10" : "";
+  const typeLabel = vendor ? TYPE_LABELS[vendor.type] || "Game" : "Game";
 
   const handleLaunch = async () => {
     if (!user) {
@@ -87,26 +78,24 @@ export function GameDetailModal({ game, vendor, open, onClose }: GameDetailModal
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="bg-card/95 backdrop-blur-xl border-white/10 text-white p-0 max-w-lg overflow-hidden">
+      <DialogContent className="bg-[#111827]/98 backdrop-blur-xl border-white/10 text-white p-0 max-w-lg overflow-hidden">
         <DialogTitle className="sr-only">{game.gameName}</DialogTitle>
         <DialogDescription className="sr-only">Game details for {game.gameName}</DialogDescription>
         <div className="relative">
-          <div className="aspect-video w-full bg-gradient-to-br from-card to-black overflow-hidden relative">
+          <div className="aspect-video w-full bg-gradient-to-br from-[#111827] to-black overflow-hidden relative">
             {game.thumbnail ? (
               <img
                 src={game.thumbnail}
                 alt={game.gameName}
                 className="w-full h-full object-cover"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.display = "none";
-                }}
+                onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
               />
             ) : (
-              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-secondary/20">
-                <Gamepad2 className="w-16 h-16 text-white/20" />
+              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-amber-500/10 to-orange-500/10">
+                <Gamepad2 className="w-16 h-16 text-white/10" />
               </div>
             )}
-            <div className="absolute inset-0 bg-gradient-to-t from-card via-transparent to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#111827] via-transparent to-transparent" />
 
             <div className="absolute top-3 left-3 flex gap-2">
               {game.isNew && (
@@ -118,7 +107,7 @@ export function GameDetailModal({ game, vendor, open, onClose }: GameDetailModal
             </div>
 
             <div className="absolute top-3 right-3">
-              <span className={`text-xs px-2.5 py-1 rounded-lg border font-bold ${typeColor}`}>
+              <span className="text-xs px-2.5 py-1 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-400 font-bold">
                 {typeLabel}
               </span>
             </div>
@@ -127,21 +116,21 @@ export function GameDetailModal({ game, vendor, open, onClose }: GameDetailModal
           <div className="p-5 space-y-4">
             <div>
               <h2 className="text-xl font-display font-bold text-white leading-tight">{game.gameName}</h2>
-              <p className="text-sm text-muted-foreground mt-1">{vendor?.name || game.vendorCode}</p>
+              <p className="text-sm text-white/40 mt-1">{vendor?.name || game.vendorCode}</p>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <div className="bg-black/30 rounded-lg p-3 border border-white/5">
+              <div className="bg-white/[0.03] rounded-lg p-3 border border-white/5">
                 <div className="flex items-center gap-1.5 mb-1">
-                  <Server className="w-3 h-3 text-muted-foreground" />
-                  <span className="text-[10px] text-muted-foreground uppercase font-semibold">Provider</span>
+                  <Server className="w-3 h-3 text-white/30" />
+                  <span className="text-[10px] text-white/30 uppercase font-semibold">Provider</span>
                 </div>
                 <p className="text-sm text-white truncate">{vendor?.name || game.vendorCode}</p>
               </div>
-              <div className="bg-black/30 rounded-lg p-3 border border-white/5">
+              <div className="bg-white/[0.03] rounded-lg p-3 border border-white/5">
                 <div className="flex items-center gap-1.5 mb-1">
-                  <Tag className="w-3 h-3 text-muted-foreground" />
-                  <span className="text-[10px] text-muted-foreground uppercase font-semibold">Type</span>
+                  <Tag className="w-3 h-3 text-white/30" />
+                  <span className="text-[10px] text-white/30 uppercase font-semibold">Type</span>
                 </div>
                 <p className="text-sm text-white truncate">{typeLabel}</p>
               </div>
@@ -159,7 +148,7 @@ export function GameDetailModal({ game, vendor, open, onClose }: GameDetailModal
 
             <div className="flex gap-2 pt-1">
               <Button
-                className="flex-1 bg-gradient-to-r from-primary to-purple-500 hover:from-primary/90 hover:to-purple-500/90 text-white font-bold rounded-xl h-11 shadow-[0_0_20px_rgba(139,92,246,0.3)]"
+                className="flex-1 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-black font-bold rounded-xl h-11 shadow-lg shadow-amber-500/20"
                 disabled={isLaunching || game.underMaintenance}
                 onClick={handleLaunch}
               >

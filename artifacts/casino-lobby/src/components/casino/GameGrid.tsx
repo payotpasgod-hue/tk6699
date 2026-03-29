@@ -8,14 +8,6 @@ import type { Game } from "@workspace/api-client-react";
 
 const GAMES_PER_PAGE = 30;
 
-const TYPE_LABELS: Record<number, string> = {
-  1: "Live",
-  2: "Slot",
-  3: "Mini",
-  4: "Fish",
-  6: "Board",
-};
-
 interface GameGridProps {
   isLoading: boolean;
   loadProgress?: { current: number; total: number };
@@ -26,11 +18,11 @@ export function GameGrid({ isLoading, loadProgress }: GameGridProps) {
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
 
   const filteredGames = useMemo(() => {
-    return store.games.filter(game => {
+    return store.games.filter((game) => {
       if (store.selectedVendorCode !== "ALL" && game.vendorCode !== store.selectedVendorCode) return false;
       if (store.searchQuery && !game.gameName.toLowerCase().includes(store.searchQuery.toLowerCase())) return false;
-      if (store.gameTypeFilter !== "ALL") {
-        const vendor = store.vendors.find(v => v.vendorCode === game.vendorCode);
+      if (store.gameTypeFilter !== "ALL" && store.gameTypeFilter !== "HOT") {
+        const vendor = store.vendors.find((v) => v.vendorCode === game.vendorCode);
         if (vendor && vendor.type.toString() !== store.gameTypeFilter) return false;
       }
       return true;
@@ -44,33 +36,19 @@ export function GameGrid({ isLoading, loadProgress }: GameGridProps) {
   }, [filteredGames, store.gamesPage]);
 
   const selectedVendor = selectedGame
-    ? store.vendors.find(v => v.vendorCode === selectedGame.vendorCode) || null
+    ? store.vendors.find((v) => v.vendorCode === selectedGame.vendorCode) || null
     : null;
 
   if (isLoading) {
     return (
       <div className="mb-8">
-        {loadProgress && loadProgress.total > 0 && (
-          <div className="mb-6">
-            <div className="flex items-center justify-between text-sm text-muted-foreground mb-2">
-              <span>Loading providers...</span>
-              <span>{loadProgress.current}/{loadProgress.total}</span>
-            </div>
-            <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-gradient-to-r from-primary to-secondary rounded-full transition-all duration-300"
-                style={{ width: `${(loadProgress.current / loadProgress.total) * 100}%` }}
-              />
-            </div>
-          </div>
-        )}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
           {Array.from({ length: 12 }).map((_, i) => (
-            <div key={i} className="rounded-xl bg-card/40 border border-white/5 overflow-hidden animate-pulse">
+            <div key={i} className="rounded-xl bg-[#111827] overflow-hidden animate-pulse">
               <div className="aspect-[4/3] bg-white/5" />
-              <div className="p-3 space-y-2">
-                <div className="h-3 bg-white/10 rounded w-1/3" />
-                <div className="h-4 bg-white/10 rounded w-3/4" />
+              <div className="p-2 space-y-1.5">
+                <div className="h-3 bg-white/5 rounded w-3/4" />
+                <div className="h-2 bg-white/5 rounded w-1/2" />
               </div>
             </div>
           ))}
@@ -81,13 +59,13 @@ export function GameGrid({ isLoading, loadProgress }: GameGridProps) {
 
   if (store.games.length === 0) {
     return (
-      <div className="glass-panel py-16 flex flex-col items-center justify-center rounded-2xl text-center px-4 mb-8">
+      <div className="py-16 flex flex-col items-center justify-center text-center px-4 mb-8">
         <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center mb-5">
-          <Gamepad2 className="w-8 h-8 text-muted-foreground" />
+          <Gamepad2 className="w-8 h-8 text-white/10" />
         </div>
-        <h3 className="text-xl font-display font-bold text-white mb-2">No Games Loaded</h3>
-        <p className="text-muted-foreground text-sm max-w-md">
-          Click "Load All Games" or "Refresh Cache" above to fetch games from all providers.
+        <h3 className="text-lg font-display font-bold text-white mb-2">No Games Loaded</h3>
+        <p className="text-white/30 text-sm max-w-md">
+          Games will appear here once the cache is loaded.
         </p>
       </div>
     );
@@ -95,110 +73,99 @@ export function GameGrid({ isLoading, loadProgress }: GameGridProps) {
 
   if (filteredGames.length === 0) {
     return (
-      <div className="glass-panel py-16 flex flex-col items-center justify-center rounded-2xl text-center px-4 mb-8">
+      <div className="py-16 flex flex-col items-center justify-center text-center px-4 mb-8">
         <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center mb-5">
-          <AlertTriangle className="w-8 h-8 text-muted-foreground" />
+          <AlertTriangle className="w-8 h-8 text-white/10" />
         </div>
-        <h3 className="text-xl font-display font-bold text-white mb-2">No Matches</h3>
-        <p className="text-muted-foreground text-sm max-w-md">
-          No games match your current filters. Try changing the provider or clearing your search.
+        <h3 className="text-lg font-display font-bold text-white mb-2">No Matches</h3>
+        <p className="text-white/30 text-sm max-w-md">
+          No games match your current filters.
         </p>
       </div>
     );
   }
 
   return (
-    <div className="mb-8">
-      <div className="flex items-center justify-between mb-4">
-        <p className="text-sm text-muted-foreground">
-          Showing <span className="text-white font-semibold">{paginatedGames.length}</span> of <span className="text-white font-semibold">{filteredGames.length}</span> games
+    <div className="mb-20">
+      <div className="flex items-center justify-between mb-3 px-1">
+        <p className="text-xs text-white/30">
+          <span className="text-white/60 font-semibold">{filteredGames.length}</span> games
         </p>
         {totalPages > 1 && (
-          <div className="flex items-center gap-2">
-            <Button 
-              variant="outline" 
-              size="sm" 
+          <div className="flex items-center gap-1.5">
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => store.setGamesPage(Math.max(1, store.gamesPage - 1))}
               disabled={store.gamesPage <= 1}
-              className="bg-white/5 border-white/10 h-8 w-8 p-0"
+              className="bg-white/5 border-white/5 h-7 w-7 p-0"
             >
-              <ChevronLeft className="w-4 h-4" />
+              <ChevronLeft className="w-3.5 h-3.5" />
             </Button>
-            <span className="text-sm text-muted-foreground px-2">
-              {store.gamesPage} / {totalPages}
+            <span className="text-xs text-white/30 px-1">
+              {store.gamesPage}/{totalPages}
             </span>
-            <Button 
-              variant="outline" 
-              size="sm" 
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => store.setGamesPage(Math.min(totalPages, store.gamesPage + 1))}
               disabled={store.gamesPage >= totalPages}
-              className="bg-white/5 border-white/10 h-8 w-8 p-0"
+              className="bg-white/5 border-white/5 h-7 w-7 p-0"
             >
-              <ChevronRight className="w-4 h-4" />
+              <ChevronRight className="w-3.5 h-3.5" />
             </Button>
           </div>
         )}
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 sm:gap-3">
         {paginatedGames.map((game) => {
-          const vendor = store.vendors.find(v => v.vendorCode === game.vendorCode);
-          const typeLabel = vendor ? TYPE_LABELS[vendor.type] || "" : "";
-          
+          const vendor = store.vendors.find((v) => v.vendorCode === game.vendorCode);
+
           return (
-            <div 
+            <div
               key={`${game.vendorCode}-${game.gameCode}`}
-              className="group relative rounded-xl bg-card/50 border border-white/[0.06] overflow-hidden hover:border-white/20 hover:shadow-[0_4px_24px_rgba(139,92,246,0.12)] transition-all duration-300 cursor-pointer"
+              className="group relative rounded-xl bg-[#111827] border border-white/[0.04] overflow-hidden hover:border-amber-500/30 hover:shadow-lg hover:shadow-amber-500/5 transition-all duration-300 cursor-pointer"
               onClick={() => setSelectedGame(game)}
             >
-              <div className="absolute top-2 left-2 z-10 flex flex-col gap-1">
+              <div className="absolute top-1.5 left-1.5 z-10 flex flex-col gap-1">
                 {game.isNew && (
-                  <Badge className="bg-green-500/90 text-white text-[10px] font-bold border-none px-1.5 py-0">NEW</Badge>
+                  <Badge className="bg-green-500/90 text-white text-[9px] font-bold border-none px-1 py-0 h-4">NEW</Badge>
                 )}
                 {game.underMaintenance && (
-                  <Badge variant="destructive" className="text-[10px] font-bold border-none px-1.5 py-0">DOWN</Badge>
+                  <Badge variant="destructive" className="text-[9px] font-bold border-none px-1 py-0 h-4">DOWN</Badge>
                 )}
               </div>
 
-              {typeLabel && (
-                <div className="absolute top-2 right-2 z-10">
-                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-black/60 backdrop-blur-sm border border-white/10 text-white/70 font-bold uppercase">
-                    {typeLabel}
-                  </span>
-                </div>
-              )}
-
-              <div className="aspect-[4/3] w-full relative bg-gradient-to-br from-card to-black overflow-hidden">
+              <div className="aspect-[4/3] w-full relative overflow-hidden">
                 {game.thumbnail ? (
-                  <img 
-                    src={game.thumbnail} 
+                  <img
+                    src={game.thumbnail}
                     alt={game.gameName}
                     loading="lazy"
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = 'none';
-                    }}
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/10 to-secondary/10">
-                    <Gamepad2 className="w-8 h-8 text-white/20" />
+                  <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-amber-500/5 to-orange-500/5">
+                    <Gamepad2 className="w-8 h-8 text-white/10" />
                   </div>
                 )}
-                
+
                 <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-all duration-200 flex items-center justify-center">
-                  <div className="bg-primary/90 rounded-full w-12 h-12 flex items-center justify-center shadow-[0_0_20px_rgba(139,92,246,0.6)]">
-                    <Play className="w-5 h-5 ml-0.5 text-white" fill="currentColor" />
+                  <div className="bg-amber-500 rounded-full w-10 h-10 flex items-center justify-center shadow-lg shadow-amber-500/40 scale-75 group-hover:scale-100 transition-transform duration-200">
+                    <Play className="w-4 h-4 ml-0.5 text-black" fill="currentColor" />
                   </div>
                 </div>
               </div>
 
-              <div className="p-2.5">
-                <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider truncate mb-0.5">
-                  {vendor?.name || game.vendorCode}
-                </p>
-                <h4 className="text-white font-bold text-sm truncate leading-tight" title={game.gameName}>
+              <div className="p-2">
+                <h4 className="text-white text-xs font-semibold truncate leading-tight" title={game.gameName}>
                   {game.gameName}
                 </h4>
+                <p className="text-[10px] text-white/20 truncate mt-0.5">
+                  {vendor?.name || game.vendorCode}
+                </p>
               </div>
             </div>
           );
@@ -206,17 +173,17 @@ export function GameGrid({ isLoading, loadProgress }: GameGridProps) {
       </div>
 
       {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2 mt-6">
-          <Button 
-            variant="outline" 
-            size="sm" 
+        <div className="flex items-center justify-center gap-1.5 mt-6">
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => store.setGamesPage(Math.max(1, store.gamesPage - 1))}
             disabled={store.gamesPage <= 1}
-            className="bg-white/5 border-white/10"
+            className="bg-white/5 border-white/5 text-xs"
           >
-            <ChevronLeft className="w-4 h-4 mr-1" /> Prev
+            <ChevronLeft className="w-3.5 h-3.5 mr-1" /> Prev
           </Button>
-          
+
           {Array.from({ length: Math.min(5, totalPages) }).map((_, i) => {
             let page: number;
             if (totalPages <= 5) {
@@ -235,9 +202,10 @@ export function GameGrid({ isLoading, loadProgress }: GameGridProps) {
                 variant={store.gamesPage === page ? "default" : "outline"}
                 size="sm"
                 onClick={() => store.setGamesPage(page)}
-                className={store.gamesPage === page 
-                  ? "bg-primary text-white h-8 w-8 p-0" 
-                  : "bg-white/5 border-white/10 h-8 w-8 p-0"
+                className={
+                  store.gamesPage === page
+                    ? "bg-amber-500 text-black h-8 w-8 p-0 font-bold"
+                    : "bg-white/5 border-white/5 h-8 w-8 p-0"
                 }
               >
                 {page}
@@ -245,14 +213,14 @@ export function GameGrid({ isLoading, loadProgress }: GameGridProps) {
             );
           })}
 
-          <Button 
-            variant="outline" 
-            size="sm" 
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => store.setGamesPage(Math.min(totalPages, store.gamesPage + 1))}
             disabled={store.gamesPage >= totalPages}
-            className="bg-white/5 border-white/10"
+            className="bg-white/5 border-white/5 text-xs"
           >
-            Next <ChevronRight className="w-4 h-4 ml-1" />
+            Next <ChevronRight className="w-3.5 h-3.5 ml-1" />
           </Button>
         </div>
       )}

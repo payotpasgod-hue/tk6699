@@ -1,14 +1,17 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { Navbar } from "@/components/casino/Navbar";
-import { Hero } from "@/components/casino/Hero";
-import { SearchFilters } from "@/components/casino/SearchFilters";
+import { CategoryTabs } from "@/components/casino/CategoryTabs";
+import { PromoBanner } from "@/components/casino/PromoBanner";
+import { GameRow } from "@/components/casino/GameRow";
 import { ProviderChips } from "@/components/casino/ProviderChips";
 import { GameGrid } from "@/components/casino/GameGrid";
 import { GameLauncher } from "@/components/casino/GameLauncher";
+import { BottomNav } from "@/components/casino/BottomNav";
 import { useLobbyStore } from "@/store/use-lobby-store";
 import { useAuthStore } from "@/store/use-auth-store";
 import { apiRequest } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+import { Flame, Sparkles, Star, Trophy } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -47,55 +50,119 @@ export default function Lobby() {
     } catch {}
   };
 
-  const handleLoadGames = async () => {
-    const hasCached = await loadFromCache();
-    if (hasCached) {
-      const currentStore = useLobbyStore.getState();
-      toast({ title: "Games Ready", description: `${currentStore.games.length} games available.` });
-      document.getElementById("providers-section")?.scrollIntoView({ behavior: "smooth" });
-      return;
-    }
+  const showBrowseMode = store.searchQuery.length > 0 || store.selectedVendorCode !== "ALL";
 
-    setIsLoadingGames(true);
-    toast({ title: "Loading Games", description: "Fetching games from all providers..." });
-
-    try {
-      const res = await fetch(`${BASE}/api/oroplay/cache/refresh`, { method: "POST" });
-      const data = await res.json();
-      if (data.success) {
-        store.setVendors(data.vendors);
-        store.setGames(data.games);
-        store.setCacheTimestamp(data.timestamp);
-        toast({ title: "Games Loaded", description: `${data.totalGames} games from ${data.totalVendors} providers.` });
+  const popularGames = useMemo(() => {
+    const filtered = store.games.filter((g) => {
+      if (store.gameTypeFilter !== "ALL" && store.gameTypeFilter !== "HOT") {
+        const vendor = store.vendors.find((v) => v.vendorCode === g.vendorCode);
+        if (vendor && vendor.type.toString() !== store.gameTypeFilter) return false;
       }
-    } catch (err: any) {
-      toast({ variant: "destructive", title: "Failed", description: err.message });
-    } finally {
-      setIsLoadingGames(false);
+      return true;
+    });
+    return filtered.slice(0, 20);
+  }, [store.games, store.gameTypeFilter, store.vendors]);
+
+  const newGames = useMemo(() => {
+    const filtered = store.games.filter((g) => {
+      if (!g.isNew) return false;
+      if (store.gameTypeFilter !== "ALL" && store.gameTypeFilter !== "HOT") {
+        const vendor = store.vendors.find((v) => v.vendorCode === g.vendorCode);
+        if (vendor && vendor.type.toString() !== store.gameTypeFilter) return false;
+      }
+      return true;
+    });
+    return filtered.slice(0, 20);
+  }, [store.games, store.gameTypeFilter, store.vendors]);
+
+  const topProviderSections = useMemo(() => {
+    const vendorCounts: Record<string, number> = {};
+    const vendorGames: Record<string, typeof store.games> = {};
+
+    for (const game of store.games) {
+      if (store.gameTypeFilter !== "ALL" && store.gameTypeFilter !== "HOT") {
+        const vendor = store.vendors.find((v) => v.vendorCode === game.vendorCode);
+        if (vendor && vendor.type.toString() !== store.gameTypeFilter) continue;
+      }
+      vendorCounts[game.vendorCode] = (vendorCounts[game.vendorCode] || 0) + 1;
+      if (!vendorGames[game.vendorCode]) vendorGames[game.vendorCode] = [];
+      if (vendorGames[game.vendorCode].length < 20) {
+        vendorGames[game.vendorCode].push(game);
+      }
     }
-  };
+
+    const sorted = Object.entries(vendorCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 8);
+
+    return sorted.map(([vendorCode]) => {
+      const vendor = store.vendors.find((v) => v.vendorCode === vendorCode);
+      return {
+        vendorCode,
+        name: vendor?.name || vendorCode,
+        games: vendorGames[vendorCode] || [],
+      };
+    });
+  }, [store.games, store.vendors, store.gameTypeFilter]);
 
   return (
-    <div className="min-h-screen bg-background text-foreground pb-20 selection:bg-primary/30">
+    <div className="min-h-screen bg-[#070b14] text-white pb-20 sm:pb-8 selection:bg-amber-500/30">
       <Navbar />
+      <CategoryTabs />
 
-      <main className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-6">
-        <Hero
-          onLoadGames={handleLoadGames}
-          cacheTimestamp={store.cacheTimestamp}
-        />
-
-        <SearchFilters />
-
+      <main className="max-w-[1400px] mx-auto px-3 sm:px-4 pt-4">
         <GameLauncher />
 
-        <ProviderChips />
+        {!showBrowseMode && (
+          <>
+            <PromoBanner />
 
-        <GameGrid
-          isLoading={isLoadingGames}
-          loadProgress={loadProgress}
-        />
+            {popularGames.length > 0 && (
+              <GameRow
+                title="Popular Games"
+                icon={<Flame className="w-4 h-4 text-orange-400" />}
+                games={popularGames}
+                accentColor="text-white"
+              />
+            )}
+
+            {newGames.length > 0 && (
+              <GameRow
+                title="New Games"
+                icon={<Sparkles className="w-4 h-4 text-emerald-400" />}
+                games={newGames}
+                accentColor="text-white"
+              />
+            )}
+
+            {topProviderSections.map((section, idx) => (
+              <GameRow
+                key={section.vendorCode}
+                title={section.name}
+                icon={idx === 0 ? <Trophy className="w-4 h-4 text-amber-400" /> : <Star className="w-4 h-4 text-white/20" />}
+                games={section.games}
+                accentColor="text-white"
+              />
+            ))}
+          </>
+        )}
+
+        {showBrowseMode && (
+          <>
+            <ProviderChips />
+            <GameGrid isLoading={isLoadingGames} loadProgress={loadProgress} />
+          </>
+        )}
+
+        {!showBrowseMode && store.games.length > 0 && (
+          <>
+            <ProviderChips />
+            <GameGrid isLoading={isLoadingGames} loadProgress={loadProgress} />
+          </>
+        )}
       </main>
+
+      <BottomNav />
     </div>
   );
 }

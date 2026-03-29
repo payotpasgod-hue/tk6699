@@ -37,31 +37,34 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-4">
+    <div className="min-h-screen bg-[#070b14] flex items-center justify-center px-4">
       <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/10 blur-[120px] rounded-full" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-secondary/10 blur-[120px] rounded-full" />
+        <div className="absolute top-1/3 left-1/3 w-80 h-80 bg-amber-500/5 blur-[120px] rounded-full" />
+        <div className="absolute bottom-1/3 right-1/3 w-80 h-80 bg-orange-500/5 blur-[120px] rounded-full" />
       </div>
 
-      <div className="relative w-full max-w-md">
+      <div className="relative w-full max-w-sm">
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-display font-bold text-white tracking-wide">
-            TK<span className="text-secondary">6699</span>
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 shadow-lg shadow-amber-500/20 mb-4">
+            <span className="text-white font-display font-bold text-lg">TK</span>
+          </div>
+          <h1 className="text-3xl font-display font-bold text-white tracking-wide">
+            TK<span className="text-amber-400">6699</span>
           </h1>
-          <p className="text-muted-foreground text-sm mt-2">Sign in to your account</p>
+          <p className="text-white/30 text-sm mt-2">Sign in to your account</p>
         </div>
 
-        <form onSubmit={handleLogin} className="glass-panel p-6 rounded-2xl space-y-5">
+        <form onSubmit={handleLogin} className="bg-[#111827]/80 backdrop-blur-xl border border-white/5 p-6 rounded-2xl space-y-5">
           <div>
-            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">
+            <label className="text-xs font-semibold text-white/30 uppercase tracking-wider mb-2 block">
               Phone Number
             </label>
             <div className="relative">
-              <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20" />
               <Input
                 type="tel"
                 placeholder="01XXXXXXXXX"
-                className="pl-10 bg-black/30 border-white/10 h-11"
+                className="pl-10 bg-white/[0.03] border-white/5 h-11 focus-visible:ring-amber-500"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
               />
@@ -69,21 +72,21 @@ export default function Login() {
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">
+            <label className="text-xs font-semibold text-white/30 uppercase tracking-wider mb-2 block">
               Password
             </label>
             <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20" />
               <Input
                 type={showPassword ? "text" : "password"}
                 placeholder="Enter password"
-                className="pl-10 pr-10 bg-black/30 border-white/10 h-11"
+                className="pl-10 pr-10 bg-white/[0.03] border-white/5 h-11 focus-visible:ring-amber-500"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
               <button
                 type="button"
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-white"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-white/20 hover:text-white/50"
                 onClick={() => setShowPassword(!showPassword)}
               >
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -94,10 +97,10 @@ export default function Login() {
           <Button
             type="submit"
             disabled={isLoading}
-            className="w-full h-11 bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-white font-bold rounded-xl"
+            className="w-full h-11 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-black font-bold rounded-xl shadow-lg shadow-amber-500/20"
           >
             {isLoading ? (
-              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
             ) : (
               <>
                 <LogIn className="w-4 h-4 mr-2" /> Sign In
@@ -105,11 +108,11 @@ export default function Login() {
             )}
           </Button>
 
-          <p className="text-center text-sm text-muted-foreground">
+          <p className="text-center text-sm text-white/30">
             Don't have an account?{" "}
             <button
               type="button"
-              className="text-secondary hover:text-secondary/80 font-semibold"
+              className="text-amber-400 hover:text-amber-300 font-semibold"
               onClick={() => setLocation("/register")}
             >
               Register
