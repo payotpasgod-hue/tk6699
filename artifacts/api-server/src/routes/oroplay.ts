@@ -4,12 +4,14 @@ const router: IRouter = Router();
 
 let cachedToken: string | null = null;
 let tokenExpiry: number = 0;
+let tokenPromise: Promise<string> | null = null;
 
 function getEnvConfig() {
+  const endpoint = (process.env["OROPLAY_API_ENDPOINT"] || "https://api-endpoint.com/api/v2").replace(/\/+$/, "");
   return {
     clientId: process.env["OROPLAY_CLIENT_ID"] || "",
     clientSecret: process.env["OROPLAY_CLIENT_SECRET"] || "",
-    apiEndpoint: process.env["OROPLAY_API_ENDPOINT"] || "https://api-endpoint.com/api/v2",
+    apiEndpoint: endpoint,
   };
 }
 
@@ -20,11 +22,23 @@ async function fetchToken(clientId: string, clientSecret: string, apiEndpoint: s
     headers: { "Content-Type": "application/json", accept: "*/*" },
     body: JSON.stringify({ clientId, clientSecret }),
   });
+  const text = await resp.text();
   if (!resp.ok) {
-    throw new Error(`Token fetch failed: ${resp.status} ${resp.statusText}`);
+    throw new Error(`Token fetch failed: ${resp.status} ${resp.statusText} - ${text}`);
   }
-  const data = await resp.json() as { token: string; expiration: number };
-  return data;
+  let data: { success?: boolean; token?: string; expiration?: number; message?: string; errorCode?: number };
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new Error(`Invalid token response: ${text}`);
+  }
+  if (data.success === false || data.errorCode) {
+    throw new Error(`OroPlay auth error (${data.errorCode}): ${data.message || "Unknown error"}`);
+  }
+  if (!data.token) {
+    throw new Error(`No token in response: ${text}`);
+  }
+  return { token: data.token, expiration: data.expiration || 0 };
 }
 
 async function getValidToken(clientId: string, clientSecret: string, apiEndpoint: string): Promise<string> {
@@ -32,10 +46,19 @@ async function getValidToken(clientId: string, clientSecret: string, apiEndpoint
   if (cachedToken && tokenExpiry > nowSec + 60) {
     return cachedToken;
   }
-  const result = await fetchToken(clientId, clientSecret, apiEndpoint);
-  cachedToken = result.token;
-  tokenExpiry = result.expiration;
-  return cachedToken;
+  if (tokenPromise) {
+    return tokenPromise;
+  }
+  tokenPromise = fetchToken(clientId, clientSecret, apiEndpoint).then((result) => {
+    cachedToken = result.token;
+    tokenExpiry = result.expiration;
+    tokenPromise = null;
+    return cachedToken;
+  }).catch((err) => {
+    tokenPromise = null;
+    throw err;
+  });
+  return tokenPromise;
 }
 
 async function oroplayRequest(
@@ -48,13 +71,14 @@ async function oroplayRequest(
 ): Promise<unknown> {
   const token = await getValidToken(clientId, clientSecret, apiEndpoint);
   const url = `${apiEndpoint}${path}`;
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    accept: "*/*",
+    authorization: `Bearer ${token}`,
+  };
   const resp = await fetch(url, {
     method,
-    headers: {
-      "Content-Type": "application/json",
-      accept: "*/*",
-      Authorization: `Bearer ${token}`,
-    },
+    headers,
     body: method === "POST" ? JSON.stringify(body) : undefined,
   });
   if (!resp.ok) {
@@ -77,9 +101,9 @@ router.post("/oroplay/token", async (req: Request, res: Response) => {
   try {
     const { clientId, clientSecret, apiEndpoint } = req.body as { clientId?: string; clientSecret?: string; apiEndpoint?: string };
     const env = getEnvConfig();
-    const id = clientId || env.clientId;
-    const secret = clientSecret || env.clientSecret;
-    const endpoint = apiEndpoint || env.apiEndpoint;
+    const id = (clientId && clientId !== "env") ? clientId : env.clientId;
+    const secret = (clientSecret && clientSecret !== "env") ? clientSecret : env.clientSecret;
+    const endpoint = (apiEndpoint && apiEndpoint !== "env") ? apiEndpoint.replace(/\/+$/, "") : env.apiEndpoint;
 
     if (!id || !secret) {
       res.status(400).json({ success: false, message: "Missing clientId or clientSecret" });
