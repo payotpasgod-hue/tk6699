@@ -21,7 +21,8 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 ```text
 artifacts-monorepo/
 ├── artifacts/              # Deployable applications
-│   └── api-server/         # Express API server
+│   ├── api-server/         # Express API server (OroPlay proxy)
+│   └── casino-lobby/       # Premium React casino lobby UI
 ├── lib/                    # Shared libraries
 │   ├── api-spec/           # OpenAPI spec + Orval codegen config
 │   ├── api-client-react/   # Generated React Query hooks
@@ -49,6 +50,17 @@ Every package extends `tsconfig.base.json` which sets `composite: true`. The roo
 - `pnpm run typecheck` — runs `tsc --build --emitDeclarationOnly` using project references
 
 ## Packages
+
+### `artifacts/casino-lobby` (`@workspace/casino-lobby`)
+
+Premium React + Vite casino lobby frontend. Full OroPlay API-connected game testing platform.
+
+- Entry: `src/main.tsx` → `src/App.tsx` → `src/pages/Lobby.tsx`
+- Components: `src/components/casino/` — Navbar, Hero, StatsCards, ConfigPanel, ControlPanel, ProviderChips, GameGrid, GameLauncher
+- State: `src/store/use-lobby-store.ts` — Zustand store (persisted to localStorage, excludes secrets)
+- Theme: `src/index.css` — Luxury dark casino theme (deep midnight navy, violet, cyan, gold)
+- All API calls proxy through `/api/oroplay/*` on the backend — never directly to OroPlay
+- API credentials can be set via env vars (`OROPLAY_CLIENT_ID`, `OROPLAY_CLIENT_SECRET`, `OROPLAY_API_ENDPOINT`) or entered in-app
 
 ### `artifacts/api-server` (`@workspace/api-server`)
 

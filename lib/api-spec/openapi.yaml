@@ -1,15 +1,16 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Casino Lobby API - OroPlay proxy
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: oroplay
+    description: OroPlay casino API proxy
 paths:
   /healthz:
     get:
@@ -24,6 +25,240 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /oroplay/token:
+    post:
+      operationId: createToken
+      tags: [oroplay]
+      summary: Get OroPlay auth token
+      description: Creates an authentication token for OroPlay API
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTokenRequest"
+      responses:
+        "200":
+          description: Token created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateTokenResponse"
+        "400":
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /oroplay/vendors:
+    get:
+      operationId: getVendors
+      tags: [oroplay]
+      summary: Get list of game vendors/providers
+      responses:
+        "200":
+          description: Vendor list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VendorListResponse"
+        "400":
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /oroplay/games:
+    post:
+      operationId: getGames
+      tags: [oroplay]
+      summary: Get list of games for a vendor
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GetGamesRequest"
+      responses:
+        "200":
+          description: Game list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameListResponse"
+        "400":
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /oroplay/game/detail:
+    post:
+      operationId: getGameDetail
+      tags: [oroplay]
+      summary: Get game detail
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GetGameDetailRequest"
+      responses:
+        "200":
+          description: Game detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameDetailResponse"
+        "400":
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /oroplay/game/launch:
+    post:
+      operationId: launchGame
+      tags: [oroplay]
+      summary: Launch a game and get the game URL
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LaunchGameRequest"
+      responses:
+        "200":
+          description: Game launch URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LaunchGameResponse"
+        "400":
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /oroplay/player/create:
+    post:
+      operationId: createPlayer
+      tags: [oroplay]
+      summary: Create or register a test player
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePlayerRequest"
+      responses:
+        "200":
+          description: Player created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlayerResponse"
+        "400":
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /oroplay/player/balance:
+    post:
+      operationId: getPlayerBalance
+      tags: [oroplay]
+      summary: Get player balance
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlayerCodeRequest"
+      responses:
+        "200":
+          description: Player balance
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BalanceResponse"
+        "400":
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /oroplay/player/deposit:
+    post:
+      operationId: depositBalance
+      tags: [oroplay]
+      summary: Deposit balance to player
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DepositRequest"
+      responses:
+        "200":
+          description: Deposit result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BalanceResponse"
+        "400":
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /oroplay/player/withdraw:
+    post:
+      operationId: withdrawBalance
+      tags: [oroplay]
+      summary: Withdraw balance from player
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WithdrawRequest"
+      responses:
+        "200":
+          description: Withdraw result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BalanceResponse"
+        "400":
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /oroplay/config:
+    get:
+      operationId: getConfig
+      tags: [oroplay]
+      summary: Get current OroPlay config (clientId present, no secrets)
+      responses:
+        "200":
+          description: Config
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConfigResponse"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +269,266 @@ components:
       required:
         - status
 
+    ApiError:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        errorCode:
+          type: integer
+      required:
+        - success
+        - message
+
+    CreateTokenRequest:
+      type: object
+      properties:
+        clientId:
+          type: string
+        clientSecret:
+          type: string
+        apiEndpoint:
+          type: string
+      required:
+        - clientId
+        - clientSecret
+
+    CreateTokenResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        token:
+          type: string
+        expiration:
+          type: number
+        message:
+          type: string
+      required:
+        - success
+
+    VendorListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: array
+          items:
+            $ref: "#/components/schemas/Vendor"
+        errorCode:
+          type: integer
+      required:
+        - success
+
+    Vendor:
+      type: object
+      properties:
+        vendorCode:
+          type: string
+        type:
+          type: integer
+          description: "1=live casino, 2=slot, 3=mini-game"
+        name:
+          type: string
+        url:
+          type: string
+      required:
+        - vendorCode
+        - type
+        - name
+
+    GetGamesRequest:
+      type: object
+      properties:
+        vendorCode:
+          type: string
+        language:
+          type: string
+      required:
+        - vendorCode
+        - language
+
+    GameListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: array
+          items:
+            $ref: "#/components/schemas/Game"
+        errorCode:
+          type: integer
+      required:
+        - success
+
+    Game:
+      type: object
+      properties:
+        provider:
+          type: string
+        vendorCode:
+          type: string
+        gameId:
+          type: string
+        gameCode:
+          type: string
+        gameName:
+          type: string
+        slug:
+          type: string
+        thumbnail:
+          type: string
+        updatedAt:
+          type: string
+        isNew:
+          type: boolean
+        underMaintenance:
+          type: boolean
+      required:
+        - gameCode
+        - gameName
+        - vendorCode
+
+    GetGameDetailRequest:
+      type: object
+      properties:
+        vendorCode:
+          type: string
+        gameCode:
+          type: string
+        language:
+          type: string
+      required:
+        - vendorCode
+        - gameCode
+
+    GameDetailResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          oneOf:
+            - $ref: "#/components/schemas/Game"
+            - type: string
+        errorCode:
+          type: integer
+      required:
+        - success
+
+    LaunchGameRequest:
+      type: object
+      properties:
+        vendorCode:
+          type: string
+        gameCode:
+          type: string
+        playerCode:
+          type: string
+        language:
+          type: string
+        homeUrl:
+          type: string
+        depositUrl:
+          type: string
+      required:
+        - vendorCode
+        - gameCode
+        - playerCode
+
+    LaunchGameResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+          description: The game URL to load in iframe
+        errorCode:
+          type: integer
+      required:
+        - success
+
+    CreatePlayerRequest:
+      type: object
+      properties:
+        playerCode:
+          type: string
+        currency:
+          type: string
+        nickname:
+          type: string
+      required:
+        - playerCode
+
+    PlayerResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        errorCode:
+          type: integer
+      required:
+        - success
+
+    PlayerCodeRequest:
+      type: object
+      properties:
+        playerCode:
+          type: string
+      required:
+        - playerCode
+
+    BalanceResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: number
+        errorCode:
+          type: integer
+      required:
+        - success
+
+    DepositRequest:
+      type: object
+      properties:
+        playerCode:
+          type: string
+        amount:
+          type: number
+        txnId:
+          type: string
+      required:
+        - playerCode
+        - amount
+
+    WithdrawRequest:
+      type: object
+      properties:
+        playerCode:
+          type: string
+        amount:
+          type: number
+        txnId:
+          type: string
+      required:
+        - playerCode
+        - amount
+
+    ConfigResponse:
+      type: object
+      properties:
+        hasCredentials:
+          type: boolean
+        apiEndpoint:
+          type: string
+      required:
+        - hasCredentials

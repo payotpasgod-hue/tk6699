@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Casino Lobby"
+version = "1.0.0"
+id = "artifacts/casino-lobby"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 21460
+
+[services.development]
+run = "pnpm --filter @workspace/casino-lobby run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/casino-lobby", "run", "build" ]
+publicDir = "artifacts/casino-lobby/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "21460"
+BASE_PATH = "/"
