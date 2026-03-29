@@ -7,7 +7,5 @@
  */
 
 export interface CreatePlayerRequest {
-  playerCode: string;
-  currency?: string;
-  nickname?: string;
+  userCode: string;
 }

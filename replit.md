@@ -70,10 +70,23 @@ Express 5 API server. Routes live in `src/routes/` and use `@workspace/api-zod` 
 - App setup: `src/app.ts` — mounts CORS, JSON/urlencoded parsing, routes at `/api`
 - Routes: `src/routes/index.ts` mounts sub-routers; `src/routes/health.ts` exposes `GET /health` (full path: `/api/health`)
 - OroPlay proxy routes: `src/routes/oroplay.ts` — token auth, vendor/game/player endpoints, seamless wallet callbacks
+- **Integration API** (Our App → OroPlay via Relay):
+  - `POST /api/oroplay/token` — authenticate with OroPlay
+  - `GET /api/oroplay/vendors` — list game providers
+  - `POST /api/oroplay/games` — list games for vendor
+  - `POST /api/oroplay/game/detail` — get game detail
+  - `POST /api/oroplay/game/launch` — get game launch URL (`POST /game/launch-url` on OroPlay, uses `userCode`/`lobbyUrl`)
+  - `POST /api/oroplay/player/create` — register user on OroPlay (`POST /user/create`)
+  - `POST /api/oroplay/player/balance` — get player balance (local seamless wallet + OroPlay check)
+  - `POST /api/oroplay/player/deposit` — deposit funds (tries OroPlay Transfer API, falls back to local seamless wallet)
+  - `POST /api/oroplay/player/withdraw` — withdraw funds (same fallback pattern; amount=-1 for withdraw-all)
+  - `GET /api/oroplay/agent/balance` — get OroPlay agent balance
+  - `GET /api/oroplay/cache` / `POST /api/oroplay/cache/refresh` — game data cache
 - **Seamless Wallet Callbacks** (OroPlay → Relay VPS → Our App):
-  - `POST /api/balance` — returns player balance
-  - `POST /api/transaction` — processes BET/WIN/CREDIT/DEBIT/ROLLBACK/REFUND
+  - `POST /api/balance` — returns player balance (uses `userCode`)
+  - `POST /api/transaction` — processes transactions (uses `amount`: negative=bet, positive=win; `transactionCode` for dedup; `isFinished`/`isCanceled` flags)
   - `POST /api/batch-transactions` — processes multiple transactions in one call
+- **Wallet mode**: Seamless wallet (balance lives locally, OroPlay calls our callbacks during gameplay). Transfer API deposit/withdraw attempted first but not available for this client.
 - Depends on: `@workspace/db`, `@workspace/api-zod`
 - `pnpm --filter @workspace/api-server run dev` — run the dev server
 - `pnpm --filter @workspace/api-server run build` — production esbuild bundle (`dist/index.cjs`)

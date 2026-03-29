@@ -11,7 +11,7 @@ export function Navbar() {
 
   const handleCheckBalance = async () => {
     try {
-      const res = await checkBalance({ data: { playerCode } });
+      const res = await checkBalance({ data: { userCode: playerCode } });
       if (res.success && res.message !== undefined) {
         setPlayerSession({ balance: res.message });
         toast({ title: "Balance Updated", description: `Current balance: $${res.message.toFixed(2)}` });

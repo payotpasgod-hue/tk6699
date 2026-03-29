@@ -63,9 +63,9 @@ export function GameDetailModal({ game, vendor, open, onClose }: GameDetailModal
         data: {
           vendorCode: game.vendorCode,
           gameCode: game.gameCode,
-          playerCode: store.playerCode,
+          userCode: store.playerCode,
           language: store.language,
-          homeUrl: window.location.href,
+          lobbyUrl: window.location.href,
         },
       });
 

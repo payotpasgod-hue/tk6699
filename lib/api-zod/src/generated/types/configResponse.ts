@@ -9,4 +9,5 @@
 export interface ConfigResponse {
   hasCredentials: boolean;
   apiEndpoint?: string;
+  clientId?: string;
 }

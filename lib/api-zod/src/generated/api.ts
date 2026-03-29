@@ -16,7 +16,6 @@ export const HealthCheckResponse = zod.object({
 });
 
 /**
- * Creates an authentication token for OroPlay API
  * @summary Get OroPlay auth token
  */
 export const CreateTokenBody = zod.object({
@@ -41,7 +40,9 @@ export const GetVendorsResponse = zod.object({
     .array(
       zod.object({
         vendorCode: zod.string(),
-        type: zod.number().describe("1=live casino, 2=slot, 3=mini-game"),
+        type: zod
+          .number()
+          .describe("1=live casino, 2=slot, 3=mini-game, 4=fishing, 6=board"),
         name: zod.string(),
         url: zod.string().optional(),
       }),
@@ -85,7 +86,6 @@ export const GetGamesResponse = zod.object({
 export const GetGameDetailBody = zod.object({
   vendorCode: zod.string(),
   gameCode: zod.string(),
-  language: zod.string().optional(),
 });
 
 export const GetGameDetailResponse = zod.object({
@@ -116,10 +116,10 @@ export const GetGameDetailResponse = zod.object({
 export const LaunchGameBody = zod.object({
   vendorCode: zod.string(),
   gameCode: zod.string(),
-  playerCode: zod.string(),
+  userCode: zod.string(),
   language: zod.string().optional(),
-  homeUrl: zod.string().optional(),
-  depositUrl: zod.string().optional(),
+  lobbyUrl: zod.string().optional(),
+  theme: zod.number().optional(),
 });
 
 export const LaunchGameResponse = zod.object({
@@ -129,12 +129,10 @@ export const LaunchGameResponse = zod.object({
 });
 
 /**
- * @summary Create or register a test player
+ * @summary Create a player on OroPlay (Transfer API)
  */
 export const CreatePlayerBody = zod.object({
-  playerCode: zod.string(),
-  currency: zod.string().optional(),
-  nickname: zod.string().optional(),
+  userCode: zod.string(),
 });
 
 export const CreatePlayerResponse = zod.object({
@@ -144,10 +142,10 @@ export const CreatePlayerResponse = zod.object({
 });
 
 /**
- * @summary Get player balance
+ * @summary Get player balance from OroPlay
  */
 export const GetPlayerBalanceBody = zod.object({
-  playerCode: zod.string(),
+  userCode: zod.string(),
 });
 
 export const GetPlayerBalanceResponse = zod.object({
@@ -157,12 +155,11 @@ export const GetPlayerBalanceResponse = zod.object({
 });
 
 /**
- * @summary Deposit balance to player
+ * @summary Deposit balance to player on OroPlay
  */
 export const DepositBalanceBody = zod.object({
-  playerCode: zod.string(),
+  userCode: zod.string(),
   amount: zod.number(),
-  txnId: zod.string().optional(),
 });
 
 export const DepositBalanceResponse = zod.object({
@@ -172,15 +169,23 @@ export const DepositBalanceResponse = zod.object({
 });
 
 /**
- * @summary Withdraw balance from player
+ * @summary Withdraw balance from player on OroPlay
  */
 export const WithdrawBalanceBody = zod.object({
-  playerCode: zod.string(),
-  amount: zod.number(),
-  txnId: zod.string().optional(),
+  userCode: zod.string(),
+  amount: zod.number().describe("Amount to withdraw, or -1 to withdraw all"),
 });
 
 export const WithdrawBalanceResponse = zod.object({
+  success: zod.boolean(),
+  message: zod.number().optional(),
+  errorCode: zod.number().optional(),
+});
+
+/**
+ * @summary Get agent balance from OroPlay
+ */
+export const GetAgentBalanceResponse = zod.object({
   success: zod.boolean(),
   message: zod.number().optional(),
   errorCode: zod.number().optional(),
@@ -192,4 +197,83 @@ export const WithdrawBalanceResponse = zod.object({
 export const GetConfigResponse = zod.object({
   hasCredentials: zod.boolean(),
   apiEndpoint: zod.string().optional(),
+  clientId: zod.string().optional(),
+});
+
+/**
+ * @summary Get cached game data
+ */
+export const GetCacheResponse = zod.object({
+  success: zod.boolean(),
+  vendors: zod
+    .array(
+      zod.object({
+        vendorCode: zod.string(),
+        type: zod
+          .number()
+          .describe("1=live casino, 2=slot, 3=mini-game, 4=fishing, 6=board"),
+        name: zod.string(),
+        url: zod.string().optional(),
+      }),
+    )
+    .optional(),
+  games: zod
+    .array(
+      zod.object({
+        provider: zod.string().optional(),
+        vendorCode: zod.string(),
+        gameId: zod.string().optional(),
+        gameCode: zod.string(),
+        gameName: zod.string(),
+        slug: zod.string().optional(),
+        thumbnail: zod.string().optional(),
+        updatedAt: zod.string().optional(),
+        isNew: zod.boolean().optional(),
+        underMaintenance: zod.boolean().optional(),
+      }),
+    )
+    .optional(),
+  timestamp: zod.number().optional(),
+  totalGames: zod.number().optional(),
+  totalVendors: zod.number().optional(),
+  failedVendors: zod.number().optional(),
+});
+
+/**
+ * @summary Refresh game cache from OroPlay
+ */
+export const RefreshCacheResponse = zod.object({
+  success: zod.boolean(),
+  vendors: zod
+    .array(
+      zod.object({
+        vendorCode: zod.string(),
+        type: zod
+          .number()
+          .describe("1=live casino, 2=slot, 3=mini-game, 4=fishing, 6=board"),
+        name: zod.string(),
+        url: zod.string().optional(),
+      }),
+    )
+    .optional(),
+  games: zod
+    .array(
+      zod.object({
+        provider: zod.string().optional(),
+        vendorCode: zod.string(),
+        gameId: zod.string().optional(),
+        gameCode: zod.string(),
+        gameName: zod.string(),
+        slug: zod.string().optional(),
+        thumbnail: zod.string().optional(),
+        updatedAt: zod.string().optional(),
+        isNew: zod.boolean().optional(),
+        underMaintenance: zod.boolean().optional(),
+      }),
+    )
+    .optional(),
+  timestamp: zod.number().optional(),
+  totalGames: zod.number().optional(),
+  totalVendors: zod.number().optional(),
+  failedVendors: zod.number().optional(),
 });

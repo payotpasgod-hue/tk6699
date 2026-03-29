@@ -7,7 +7,6 @@
  */
 
 export interface DepositRequest {
-  playerCode: string;
+  userCode: string;
   amount: number;
-  txnId?: string;
 }

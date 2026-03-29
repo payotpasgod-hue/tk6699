@@ -19,6 +19,7 @@ import type {
 import type {
   ApiError,
   BalanceResponse,
+  CacheResponse,
   ConfigResponse,
   CreatePlayerRequest,
   CreateTokenRequest,
@@ -31,8 +32,8 @@ import type {
   HealthStatus,
   LaunchGameRequest,
   LaunchGameResponse,
-  PlayerCodeRequest,
   PlayerResponse,
+  UserCodeRequest,
   VendorListResponse,
   WithdrawRequest,
 } from "./api.schemas";
@@ -123,7 +124,6 @@ export function useHealthCheck<
 }
 
 /**
- * Creates an authentication token for OroPlay API
  * @summary Get OroPlay auth token
  */
 export const getCreateTokenUrl = () => {
@@ -543,7 +543,7 @@ export const useLaunchGame = <
 };
 
 /**
- * @summary Create or register a test player
+ * @summary Create a player on OroPlay (Transfer API)
  */
 export const getCreatePlayerUrl = () => {
   return `/api/oroplay/player/create`;
@@ -606,7 +606,7 @@ export type CreatePlayerMutationBody = BodyType<CreatePlayerRequest>;
 export type CreatePlayerMutationError = ErrorType<ApiError>;
 
 /**
- * @summary Create or register a test player
+ * @summary Create a player on OroPlay (Transfer API)
  */
 export const useCreatePlayer = <
   TError = ErrorType<ApiError>,
@@ -629,21 +629,21 @@ export const useCreatePlayer = <
 };
 
 /**
- * @summary Get player balance
+ * @summary Get player balance from OroPlay
  */
 export const getGetPlayerBalanceUrl = () => {
   return `/api/oroplay/player/balance`;
 };
 
 export const getPlayerBalance = async (
-  playerCodeRequest: PlayerCodeRequest,
+  userCodeRequest: UserCodeRequest,
   options?: RequestInit,
 ): Promise<BalanceResponse> => {
   return customFetch<BalanceResponse>(getGetPlayerBalanceUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...options?.headers },
-    body: JSON.stringify(playerCodeRequest),
+    body: JSON.stringify(userCodeRequest),
   });
 };
 
@@ -654,14 +654,14 @@ export const getGetPlayerBalanceMutationOptions = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof getPlayerBalance>>,
     TError,
-    { data: BodyType<PlayerCodeRequest> },
+    { data: BodyType<UserCodeRequest> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof getPlayerBalance>>,
   TError,
-  { data: BodyType<PlayerCodeRequest> },
+  { data: BodyType<UserCodeRequest> },
   TContext
 > => {
   const mutationKey = ["getPlayerBalance"];
@@ -675,7 +675,7 @@ export const getGetPlayerBalanceMutationOptions = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof getPlayerBalance>>,
-    { data: BodyType<PlayerCodeRequest> }
+    { data: BodyType<UserCodeRequest> }
   > = (props) => {
     const { data } = props ?? {};
 
@@ -688,11 +688,11 @@ export const getGetPlayerBalanceMutationOptions = <
 export type GetPlayerBalanceMutationResult = NonNullable<
   Awaited<ReturnType<typeof getPlayerBalance>>
 >;
-export type GetPlayerBalanceMutationBody = BodyType<PlayerCodeRequest>;
+export type GetPlayerBalanceMutationBody = BodyType<UserCodeRequest>;
 export type GetPlayerBalanceMutationError = ErrorType<ApiError>;
 
 /**
- * @summary Get player balance
+ * @summary Get player balance from OroPlay
  */
 export const useGetPlayerBalance = <
   TError = ErrorType<ApiError>,
@@ -701,21 +701,21 @@ export const useGetPlayerBalance = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof getPlayerBalance>>,
     TError,
-    { data: BodyType<PlayerCodeRequest> },
+    { data: BodyType<UserCodeRequest> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof getPlayerBalance>>,
   TError,
-  { data: BodyType<PlayerCodeRequest> },
+  { data: BodyType<UserCodeRequest> },
   TContext
 > => {
   return useMutation(getGetPlayerBalanceMutationOptions(options));
 };
 
 /**
- * @summary Deposit balance to player
+ * @summary Deposit balance to player on OroPlay
  */
 export const getDepositBalanceUrl = () => {
   return `/api/oroplay/player/deposit`;
@@ -778,7 +778,7 @@ export type DepositBalanceMutationBody = BodyType<DepositRequest>;
 export type DepositBalanceMutationError = ErrorType<ApiError>;
 
 /**
- * @summary Deposit balance to player
+ * @summary Deposit balance to player on OroPlay
  */
 export const useDepositBalance = <
   TError = ErrorType<ApiError>,
@@ -801,7 +801,7 @@ export const useDepositBalance = <
 };
 
 /**
- * @summary Withdraw balance from player
+ * @summary Withdraw balance from player on OroPlay
  */
 export const getWithdrawBalanceUrl = () => {
   return `/api/oroplay/player/withdraw`;
@@ -864,7 +864,7 @@ export type WithdrawBalanceMutationBody = BodyType<WithdrawRequest>;
 export type WithdrawBalanceMutationError = ErrorType<ApiError>;
 
 /**
- * @summary Withdraw balance from player
+ * @summary Withdraw balance from player on OroPlay
  */
 export const useWithdrawBalance = <
   TError = ErrorType<ApiError>,
@@ -885,6 +885,81 @@ export const useWithdrawBalance = <
 > => {
   return useMutation(getWithdrawBalanceMutationOptions(options));
 };
+
+/**
+ * @summary Get agent balance from OroPlay
+ */
+export const getGetAgentBalanceUrl = () => {
+  return `/api/oroplay/agent/balance`;
+};
+
+export const getAgentBalance = async (
+  options?: RequestInit,
+): Promise<BalanceResponse> => {
+  return customFetch<BalanceResponse>(getGetAgentBalanceUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetAgentBalanceQueryKey = () => {
+  return [`/api/oroplay/agent/balance`] as const;
+};
+
+export const getGetAgentBalanceQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAgentBalance>>,
+  TError = ErrorType<ApiError>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAgentBalance>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetAgentBalanceQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getAgentBalance>>> = ({
+    signal,
+  }) => getAgentBalance({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAgentBalance>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAgentBalanceQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAgentBalance>>
+>;
+export type GetAgentBalanceQueryError = ErrorType<ApiError>;
+
+/**
+ * @summary Get agent balance from OroPlay
+ */
+
+export function useGetAgentBalance<
+  TData = Awaited<ReturnType<typeof getAgentBalance>>,
+  TError = ErrorType<ApiError>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAgentBalance>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAgentBalanceQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary Get current OroPlay config (clientId present, no secrets)
@@ -952,3 +1027,151 @@ export function useGetConfig<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Get cached game data
+ */
+export const getGetCacheUrl = () => {
+  return `/api/oroplay/cache`;
+};
+
+export const getCache = async (
+  options?: RequestInit,
+): Promise<CacheResponse> => {
+  return customFetch<CacheResponse>(getGetCacheUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetCacheQueryKey = () => {
+  return [`/api/oroplay/cache`] as const;
+};
+
+export const getGetCacheQueryOptions = <
+  TData = Awaited<ReturnType<typeof getCache>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<Awaited<ReturnType<typeof getCache>>, TError, TData>;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetCacheQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getCache>>> = ({
+    signal,
+  }) => getCache({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getCache>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetCacheQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getCache>>
+>;
+export type GetCacheQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get cached game data
+ */
+
+export function useGetCache<
+  TData = Awaited<ReturnType<typeof getCache>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<Awaited<ReturnType<typeof getCache>>, TError, TData>;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetCacheQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Refresh game cache from OroPlay
+ */
+export const getRefreshCacheUrl = () => {
+  return `/api/oroplay/cache/refresh`;
+};
+
+export const refreshCache = async (
+  options?: RequestInit,
+): Promise<CacheResponse> => {
+  return customFetch<CacheResponse>(getRefreshCacheUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getRefreshCacheMutationOptions = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof refreshCache>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof refreshCache>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["refreshCache"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof refreshCache>>,
+    void
+  > = () => {
+    return refreshCache(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RefreshCacheMutationResult = NonNullable<
+  Awaited<ReturnType<typeof refreshCache>>
+>;
+
+export type RefreshCacheMutationError = ErrorType<ApiError>;
+
+/**
+ * @summary Refresh game cache from OroPlay
+ */
+export const useRefreshCache = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof refreshCache>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof refreshCache>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getRefreshCacheMutationOptions(options));
+};

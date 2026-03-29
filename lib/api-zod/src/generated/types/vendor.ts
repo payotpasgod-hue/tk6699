@@ -8,7 +8,7 @@
 
 export interface Vendor {
   vendorCode: string;
-  /** 1=live casino, 2=slot, 3=mini-game */
+  /** 1=live casino, 2=slot, 3=mini-game, 4=fishing, 6=board */
   type: number;
   name: string;
   url?: string;

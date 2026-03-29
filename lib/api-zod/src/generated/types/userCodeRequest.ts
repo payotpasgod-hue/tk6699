@@ -6,6 +6,6 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface PlayerCodeRequest {
-  playerCode: string;
+export interface UserCodeRequest {
+  userCode: string;
 }

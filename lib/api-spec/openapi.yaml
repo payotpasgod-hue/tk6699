@@ -31,7 +31,6 @@ paths:
       operationId: createToken
       tags: [oroplay]
       summary: Get OroPlay auth token
-      description: Creates an authentication token for OroPlay API
       requestBody:
         required: true
         content:
@@ -150,7 +149,7 @@ paths:
     post:
       operationId: createPlayer
       tags: [oroplay]
-      summary: Create or register a test player
+      summary: Create a player on OroPlay (Transfer API)
       requestBody:
         required: true
         content:
@@ -175,13 +174,13 @@ paths:
     post:
       operationId: getPlayerBalance
       tags: [oroplay]
-      summary: Get player balance
+      summary: Get player balance from OroPlay
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/PlayerCodeRequest"
+              $ref: "#/components/schemas/UserCodeRequest"
       responses:
         "200":
           description: Player balance
@@ -200,7 +199,7 @@ paths:
     post:
       operationId: depositBalance
       tags: [oroplay]
-      summary: Deposit balance to player
+      summary: Deposit balance to player on OroPlay
       requestBody:
         required: true
         content:
@@ -225,7 +224,7 @@ paths:
     post:
       operationId: withdrawBalance
       tags: [oroplay]
-      summary: Withdraw balance from player
+      summary: Withdraw balance from player on OroPlay
       requestBody:
         required: true
         content:
@@ -235,6 +234,25 @@ paths:
       responses:
         "200":
           description: Withdraw result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BalanceResponse"
+        "400":
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /oroplay/agent/balance:
+    get:
+      operationId: getAgentBalance
+      tags: [oroplay]
+      summary: Get agent balance from OroPlay
+      responses:
+        "200":
+          description: Agent balance
           content:
             application/json:
               schema:
@@ -258,6 +276,38 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ConfigResponse"
+
+  /oroplay/cache:
+    get:
+      operationId: getCache
+      tags: [oroplay]
+      summary: Get cached game data
+      responses:
+        "200":
+          description: Cache data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CacheResponse"
+
+  /oroplay/cache/refresh:
+    post:
+      operationId: refreshCache
+      tags: [oroplay]
+      summary: Refresh game cache from OroPlay
+      responses:
+        "200":
+          description: Cache refreshed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CacheResponse"
+        "400":
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
 
 components:
   schemas:
@@ -330,7 +380,7 @@ components:
           type: string
         type:
           type: integer
-          description: "1=live casino, 2=slot, 3=mini-game"
+          description: "1=live casino, 2=slot, 3=mini-game, 4=fishing, 6=board"
         name:
           type: string
         url:
@@ -400,8 +450,6 @@ components:
           type: string
         gameCode:
           type: string
-        language:
-          type: string
       required:
         - vendorCode
         - gameCode
@@ -427,18 +475,18 @@ components:
           type: string
         gameCode:
           type: string
-        playerCode:
+        userCode:
           type: string
         language:
           type: string
-        homeUrl:
+        lobbyUrl:
           type: string
-        depositUrl:
-          type: string
+        theme:
+          type: integer
       required:
         - vendorCode
         - gameCode
-        - playerCode
+        - userCode
 
     LaunchGameResponse:
       type: object
@@ -456,14 +504,10 @@ components:
     CreatePlayerRequest:
       type: object
       properties:
-        playerCode:
-          type: string
-        currency:
-          type: string
-        nickname:
+        userCode:
           type: string
       required:
-        - playerCode
+        - userCode
 
     PlayerResponse:
       type: object
@@ -477,13 +521,13 @@ components:
       required:
         - success
 
-    PlayerCodeRequest:
+    UserCodeRequest:
       type: object
       properties:
-        playerCode:
+        userCode:
           type: string
       required:
-        - playerCode
+        - userCode
 
     BalanceResponse:
       type: object
@@ -500,27 +544,24 @@ components:
     DepositRequest:
       type: object
       properties:
-        playerCode:
+        userCode:
           type: string
         amount:
           type: number
-        txnId:
-          type: string
       required:
-        - playerCode
+        - userCode
         - amount
 
     WithdrawRequest:
       type: object
       properties:
-        playerCode:
+        userCode:
           type: string
         amount:
           type: number
-        txnId:
-          type: string
+          description: "Amount to withdraw, or -1 to withdraw all"
       required:
-        - playerCode
+        - userCode
         - amount
 
     ConfigResponse:
@@ -530,5 +571,31 @@ components:
           type: boolean
         apiEndpoint:
           type: string
+        clientId:
+          type: string
       required:
         - hasCredentials
+
+    CacheResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        vendors:
+          type: array
+          items:
+            $ref: "#/components/schemas/Vendor"
+        games:
+          type: array
+          items:
+            $ref: "#/components/schemas/Game"
+        timestamp:
+          type: number
+        totalGames:
+          type: integer
+        totalVendors:
+          type: integer
+        failedVendors:
+          type: integer
+      required:
+        - success

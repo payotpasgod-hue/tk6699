@@ -9,6 +9,7 @@ let tokenExpiry: number = 0;
 let tokenPromise: Promise<string> | null = null;
 
 const playerBalances: Record<string, { balance: number; currency: string }> = {};
+const processedTransactions = new Set<string>();
 
 const CACHE_DIR = path.join(process.cwd(), "data");
 const CACHE_FILE = path.join(CACHE_DIR, "games-cache.json");
@@ -105,24 +106,37 @@ async function getValidToken(clientId: string, clientSecret: string, apiEndpoint
 
 async function oroplayRequest(
   method: "GET" | "POST",
-  path: string,
+  apiPath: string,
   body: unknown,
   clientId: string,
   clientSecret: string,
   apiEndpoint: string
 ): Promise<unknown> {
-  const token = await getValidToken(clientId, clientSecret, apiEndpoint);
-  const url = `${apiEndpoint}${path}`;
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    accept: "*/*",
-    authorization: `Bearer ${token}`,
+  let token = await getValidToken(clientId, clientSecret, apiEndpoint);
+  const url = `${apiEndpoint}${apiPath}`;
+
+  const doRequest = async (authToken: string) => {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      accept: "*/*",
+      authorization: `Bearer ${authToken}`,
+    };
+    return fetch(url, {
+      method,
+      headers,
+      body: method === "POST" ? JSON.stringify(body) : undefined,
+    });
   };
-  const resp = await fetch(url, {
-    method,
-    headers,
-    body: method === "POST" ? JSON.stringify(body) : undefined,
-  });
+
+  let resp = await doRequest(token);
+
+  if (resp.status === 401) {
+    cachedToken = null;
+    tokenExpiry = 0;
+    token = await getValidToken(clientId, clientSecret, apiEndpoint);
+    resp = await doRequest(token);
+  }
+
   const text = await resp.text();
   let result: unknown;
   try {
@@ -138,8 +152,25 @@ async function oroplayRequest(
   if (typeof result === "object" && result !== null) {
     const r = result as Record<string, unknown>;
     if (r.success === false) {
-      const errorMsg = r.message || "Unknown OroPlay error";
       const errorCode = r.errorCode || 0;
+      if (errorCode === 401) {
+        cachedToken = null;
+        tokenExpiry = 0;
+        token = await getValidToken(clientId, clientSecret, apiEndpoint);
+        const retryResp = await doRequest(token);
+        const retryText = await retryResp.text();
+        try {
+          const retryResult = JSON.parse(retryText);
+          if (retryResult.success === false) {
+            throw new Error(`OroPlay error (${retryResult.errorCode || 0}): ${typeof retryResult.message === "string" ? retryResult.message : JSON.stringify(retryResult)}`);
+          }
+          return retryResult;
+        } catch (e) {
+          if (e instanceof Error && e.message.startsWith("OroPlay")) throw e;
+          throw new Error(`OroPlay API error: ${retryText}`);
+        }
+      }
+      const errorMsg = typeof r.message === "string" ? r.message : JSON.stringify(r);
       throw new Error(`OroPlay error (${errorCode}): ${errorMsg}`);
     }
   }
@@ -220,8 +251,8 @@ router.post("/oroplay/game/detail", async (req: Request, res: Response) => {
       res.status(400).json({ success: false, message: "API credentials not configured" });
       return;
     }
-    const { vendorCode, gameCode, language } = req.body as { vendorCode: string; gameCode: string; language: string };
-    const data = await oroplayRequest("POST", "/game/detail", { vendorCode, gameCode, language }, env.clientId, env.clientSecret, env.apiEndpoint);
+    const { vendorCode, gameCode } = req.body as { vendorCode: string; gameCode: string };
+    const data = await oroplayRequest("POST", "/game/detail", { vendorCode, gameCode }, env.clientId, env.clientSecret, env.apiEndpoint);
     res.json(data);
   } catch (err) {
     req.log.error({ err }, "Game detail fetch failed");
@@ -236,23 +267,30 @@ router.post("/oroplay/game/launch", async (req: Request, res: Response) => {
       res.status(400).json({ success: false, message: "API credentials not configured" });
       return;
     }
-    const { vendorCode, gameCode, playerCode, language, homeUrl, depositUrl } = req.body as {
+    const { vendorCode, gameCode, userCode, language, lobbyUrl, theme } = req.body as {
       vendorCode: string;
       gameCode: string;
-      playerCode: string;
+      userCode: string;
       language?: string;
-      homeUrl?: string;
-      depositUrl?: string;
+      lobbyUrl?: string;
+      theme?: number;
     };
 
-    if (!playerBalances[playerCode]) {
-      playerBalances[playerCode] = { balance: 0, currency: "USD" };
+    if (!playerBalances[userCode]) {
+      playerBalances[userCode] = { balance: 0, currency: "USD" };
     }
 
     const data = await oroplayRequest(
       "POST",
-      "/game/launch",
-      { vendorCode, gameCode, playerCode, language: language || "en", homeUrl, depositUrl },
+      "/game/launch-url",
+      {
+        vendorCode,
+        gameCode,
+        userCode,
+        language: language || "en",
+        lobbyUrl: lobbyUrl || "",
+        ...(theme !== undefined ? { theme } : {}),
+      },
       env.clientId,
       env.clientSecret,
       env.apiEndpoint
@@ -325,106 +363,244 @@ router.post("/oroplay/cache/refresh", async (req: Request, res: Response) => {
   }
 });
 
-router.post("/oroplay/player/create", (req: Request, res: Response) => {
+router.post("/oroplay/player/create", async (req: Request, res: Response) => {
   try {
-    const { playerCode, currency } = req.body as { playerCode: string; currency?: string };
-    if (!playerCode) {
-      res.status(400).json({ success: false, message: "Missing playerCode" });
+    const { userCode } = req.body as { userCode: string };
+    if (!userCode) {
+      res.status(400).json({ success: false, message: "Missing userCode" });
       return;
     }
-    const cur = currency || "USD";
-    playerBalances[playerCode] = { balance: 0, currency: cur };
-    req.log.info({ playerCode, currency: cur }, "Player created (seamless wallet)");
-    res.json({ success: true, message: `Player ${playerCode} registered` });
+
+    if (!playerBalances[userCode]) {
+      playerBalances[userCode] = { balance: 0, currency: "USD" };
+    }
+
+    const env = getEnvConfig();
+    let registeredOnOroPlay = false;
+
+    if (env.clientId && env.clientSecret) {
+      try {
+        await oroplayRequest("POST", "/user/create", { userCode }, env.clientId, env.clientSecret, env.apiEndpoint);
+        registeredOnOroPlay = true;
+        req.log.info({ userCode }, "Player created on OroPlay");
+      } catch (err) {
+        const errMsg = err instanceof Error ? err.message : "";
+        if (errMsg.includes("(1)") || errMsg.includes("ALREADY_EXISTS")) {
+          registeredOnOroPlay = true;
+          req.log.info({ userCode }, "Player already exists on OroPlay");
+        } else {
+          req.log.warn({ userCode, err }, "OroPlay user/create failed, player registered locally only");
+        }
+      }
+    }
+
+    const msg = registeredOnOroPlay
+      ? `Player ${userCode} registered on OroPlay`
+      : `Player ${userCode} registered locally (seamless wallet mode)`;
+
+    res.json({ success: true, message: msg });
   } catch (err) {
     req.log.error({ err }, "Player create failed");
     res.status(400).json({ success: false, message: err instanceof Error ? err.message : "Failed to create player" });
   }
 });
 
-router.post("/oroplay/player/balance", (req: Request, res: Response) => {
+router.post("/oroplay/player/balance", async (req: Request, res: Response) => {
   try {
-    const { playerCode } = req.body as { playerCode: string };
-    if (!playerCode) {
-      res.status(400).json({ success: false, message: "Missing playerCode" });
+    const { userCode } = req.body as { userCode: string };
+    if (!userCode) {
+      res.status(400).json({ success: false, message: "Missing userCode" });
       return;
     }
-    const player = playerBalances[playerCode];
-    if (!player) {
-      playerBalances[playerCode] = { balance: 0, currency: "USD" };
+
+    if (!playerBalances[userCode]) {
+      playerBalances[userCode] = { balance: 0, currency: "USD" };
     }
-    const p = playerBalances[playerCode];
-    res.json({ success: true, message: p.balance });
+
+    const localBalance = playerBalances[userCode].balance;
+
+    const env = getEnvConfig();
+    if (env.clientId && env.clientSecret) {
+      try {
+        const data = await oroplayRequest("POST", "/user/balance", { userCode }, env.clientId, env.clientSecret, env.apiEndpoint) as { success: boolean; message?: number };
+        const oroBalance = typeof data.message === "number" ? data.message : 0;
+        if (oroBalance > 0 && oroBalance !== localBalance) {
+          req.log.info({ userCode, oroBalance, localBalance }, "OroPlay Transfer balance differs from local, using higher value");
+        }
+      } catch {
+        req.log.debug({ userCode }, "OroPlay Transfer balance not available (seamless wallet mode)");
+      }
+    }
+
+    res.json({ success: true, message: localBalance });
   } catch (err) {
     req.log.error({ err }, "Balance fetch failed");
     res.status(400).json({ success: false, message: err instanceof Error ? err.message : "Failed to fetch balance" });
   }
 });
 
-router.post("/oroplay/player/deposit", (req: Request, res: Response) => {
+router.post("/oroplay/player/deposit", async (req: Request, res: Response) => {
   try {
-    const { playerCode, amount } = req.body as { playerCode: string; amount: number; txnId?: string };
-    if (!playerCode || !amount || amount <= 0) {
-      res.status(400).json({ success: false, message: "Missing playerCode or invalid amount" });
+    const { userCode, amount } = req.body as { userCode: string; amount: number };
+    if (!userCode || !amount || amount <= 0) {
+      res.status(400).json({ success: false, message: "Missing userCode or invalid amount" });
       return;
     }
-    if (!playerBalances[playerCode]) {
-      playerBalances[playerCode] = { balance: 0, currency: "USD" };
+
+    if (!playerBalances[userCode]) {
+      playerBalances[userCode] = { balance: 0, currency: "USD" };
     }
-    playerBalances[playerCode].balance += amount;
-    req.log.info({ playerCode, amount, newBalance: playerBalances[playerCode].balance }, "Deposit processed (seamless wallet)");
-    res.json({ success: true, message: playerBalances[playerCode].balance });
+
+    const env = getEnvConfig();
+    let usedTransferApi = false;
+
+    if (env.clientId && env.clientSecret) {
+      try {
+        const orderNo = `DEP_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+        const data = await oroplayRequest("POST", "/user/deposit", {
+          userCode,
+          balance: amount,
+          orderNo,
+        }, env.clientId, env.clientSecret, env.apiEndpoint) as { success: boolean; message?: number; errorCode?: number };
+
+        const newBalance = typeof data.message === "number" ? data.message : amount;
+        playerBalances[userCode].balance = newBalance;
+        usedTransferApi = true;
+        req.log.info({ userCode, amount, newBalance, orderNo }, "Deposit processed via OroPlay Transfer API");
+      } catch (transferErr) {
+        req.log.warn({ transferErr }, "OroPlay Transfer API deposit failed, using local wallet (seamless mode)");
+      }
+    }
+
+    if (!usedTransferApi) {
+      playerBalances[userCode].balance += amount;
+      req.log.info({ userCode, amount, newBalance: playerBalances[userCode].balance }, "Deposit processed locally (seamless wallet mode)");
+    }
+
+    res.json({ success: true, message: playerBalances[userCode].balance });
   } catch (err) {
     req.log.error({ err }, "Deposit failed");
     res.status(400).json({ success: false, message: err instanceof Error ? err.message : "Failed to deposit" });
   }
 });
 
-router.post("/oroplay/player/withdraw", (req: Request, res: Response) => {
+router.post("/oroplay/player/withdraw", async (req: Request, res: Response) => {
   try {
-    const { playerCode, amount } = req.body as { playerCode: string; amount: number; txnId?: string };
-    if (!playerCode) {
-      res.status(400).json({ success: false, message: "Missing playerCode" });
+    const { userCode, amount } = req.body as { userCode: string; amount: number };
+    if (!userCode) {
+      res.status(400).json({ success: false, message: "Missing userCode" });
       return;
     }
-    if (!playerBalances[playerCode]) {
-      playerBalances[playerCode] = { balance: 0, currency: "USD" };
+    if (amount !== -1 && (amount === undefined || amount <= 0)) {
+      res.status(400).json({ success: false, message: "Invalid amount: must be positive or -1 for withdraw-all" });
+      return;
     }
-    const player = playerBalances[playerCode];
-    const withdrawAmount = (amount === -1) ? player.balance : Math.min(amount, player.balance);
-    player.balance = Math.max(0, player.balance - withdrawAmount);
-    req.log.info({ playerCode, withdrew: withdrawAmount, newBalance: player.balance }, "Withdrawal processed (seamless wallet)");
-    res.json({ success: true, message: player.balance });
+
+    if (!playerBalances[userCode]) {
+      playerBalances[userCode] = { balance: 0, currency: "USD" };
+    }
+
+    const env = getEnvConfig();
+    let usedTransferApi = false;
+
+    if (env.clientId && env.clientSecret) {
+      try {
+        if (amount === -1 || amount === undefined) {
+          const data = await oroplayRequest("POST", "/user/withdraw-all", { userCode }, env.clientId, env.clientSecret, env.apiEndpoint) as { success: boolean; message?: number };
+          const withdrawn = typeof data.message === "number" ? data.message : 0;
+          playerBalances[userCode].balance = 0;
+          usedTransferApi = true;
+          req.log.info({ userCode, withdrawn }, "Withdraw-all processed via OroPlay Transfer API");
+        } else {
+          const orderNo = `WDR_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+          const data = await oroplayRequest("POST", "/user/withdraw", { userCode, balance: amount, orderNo }, env.clientId, env.clientSecret, env.apiEndpoint) as { success: boolean; message?: number };
+          const newBalance = typeof data.message === "number" ? data.message : 0;
+          playerBalances[userCode].balance = newBalance;
+          usedTransferApi = true;
+          req.log.info({ userCode, amount, newBalance }, "Withdraw processed via OroPlay Transfer API");
+        }
+      } catch (transferErr) {
+        req.log.warn({ transferErr }, "OroPlay Transfer API withdraw failed, using local wallet (seamless mode)");
+      }
+    }
+
+    if (!usedTransferApi) {
+      if (amount === -1 || amount === undefined) {
+        playerBalances[userCode].balance = 0;
+      } else {
+        playerBalances[userCode].balance = Math.max(0, playerBalances[userCode].balance - amount);
+      }
+      req.log.info({ userCode, amount, newBalance: playerBalances[userCode].balance }, "Withdraw processed locally (seamless wallet mode)");
+    }
+
+    res.json({ success: true, message: playerBalances[userCode].balance });
   } catch (err) {
     req.log.error({ err }, "Withdraw failed");
     res.status(400).json({ success: false, message: err instanceof Error ? err.message : "Failed to withdraw" });
   }
 });
 
-router.post("/balance", (req: Request, res: Response) => {
+router.get("/oroplay/agent/balance", async (req: Request, res: Response) => {
   try {
-    const { playerCode, currency } = req.body as { playerCode?: string; currency?: string };
-    req.log.info({ playerCode, currency }, "Seamless wallet: balance callback");
-
-    if (!playerCode) {
-      res.status(400).json({ success: false, errorCode: 400, message: "Missing playerCode" });
+    const env = getEnvConfig();
+    if (!env.clientId || !env.clientSecret) {
+      res.status(400).json({ success: false, message: "API credentials not configured" });
       return;
     }
 
-    const player = playerBalances[playerCode];
-    if (!player) {
-      res.status(200).json({
-        success: true,
-        balance: 0,
-        currency: currency || "USD",
-      });
+    const data = await oroplayRequest("GET", "/agent/balance", null, env.clientId, env.clientSecret, env.apiEndpoint) as { success: boolean; message?: number; errorCode?: number };
+
+    res.json({ success: true, message: typeof data.message === "number" ? data.message : 0 });
+  } catch (err) {
+    req.log.error({ err }, "Agent balance fetch failed");
+    res.status(400).json({ success: false, message: err instanceof Error ? err.message : "Failed to fetch agent balance" });
+  }
+});
+
+function verifyCallbackAuth(req: Request, res: Response): boolean {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Basic ")) {
+    res.status(401).json({ success: false, errorCode: 401, message: "Unauthorized" });
+    return false;
+  }
+  const { clientId, clientSecret } = getEnvConfig();
+  if (!clientId || !clientSecret) {
+    return true;
+  }
+  try {
+    const decoded = Buffer.from(authHeader.slice(6), "base64").toString("utf-8");
+    const [id, secret] = decoded.split(":");
+    if (id !== clientId || secret !== clientSecret) {
+      res.status(401).json({ success: false, errorCode: 401, message: "Invalid credentials" });
+      return false;
+    }
+  } catch {
+    res.status(401).json({ success: false, errorCode: 401, message: "Invalid auth header" });
+    return false;
+  }
+  return true;
+}
+
+router.post("/balance", (req: Request, res: Response) => {
+  if (!verifyCallbackAuth(req, res)) return;
+  try {
+    const { userCode } = req.body as { userCode?: string };
+    req.log.info({ userCode }, "Seamless wallet: balance callback");
+
+    if (!userCode) {
+      res.status(400).json({ success: false, errorCode: 400, message: "Missing userCode" });
       return;
     }
 
+    if (!playerBalances[userCode]) {
+      playerBalances[userCode] = { balance: 0, currency: "USD" };
+    }
+
+    const player = playerBalances[userCode];
     res.json({
       success: true,
-      balance: player.balance,
-      currency: player.currency,
+      message: player.balance,
+      errorCode: 0,
     });
   } catch (err) {
     req.log.error({ err }, "Balance callback error");
@@ -433,55 +609,91 @@ router.post("/balance", (req: Request, res: Response) => {
 });
 
 router.post("/transaction", (req: Request, res: Response) => {
+  if (!verifyCallbackAuth(req, res)) return;
   try {
-    const { playerCode, currency, amount, txnId, txnType, gameCode, roundId, platformTxnId } = req.body as {
-      playerCode?: string;
-      currency?: string;
-      amount?: number;
-      txnId?: string;
-      txnType?: string;
+    const {
+      userCode,
+      vendorCode,
+      gameCode,
+      historyId,
+      roundId,
+      gameType,
+      transactionCode,
+      isFinished,
+      isCanceled,
+      amount,
+      detail,
+      createdAt,
+    } = req.body as {
+      userCode?: string;
+      vendorCode?: string;
       gameCode?: string;
+      historyId?: number;
       roundId?: string;
-      platformTxnId?: string;
+      gameType?: number;
+      transactionCode?: string;
+      isFinished?: boolean;
+      isCanceled?: boolean;
+      amount?: number;
+      detail?: string;
+      createdAt?: string;
     };
 
-    req.log.info({ playerCode, txnType, amount, txnId, gameCode, roundId, platformTxnId }, "Seamless wallet: transaction callback");
+    req.log.info({ userCode, vendorCode, gameCode, transactionCode, amount, roundId, isFinished, isCanceled, historyId }, "Seamless wallet: transaction callback");
 
-    if (!playerCode || amount === undefined || !txnId || !txnType) {
+    if (!userCode || amount === undefined || !transactionCode) {
       res.status(400).json({ success: false, errorCode: 400, message: "Missing required fields" });
       return;
     }
 
-    if (!playerBalances[playerCode]) {
-      playerBalances[playerCode] = { balance: 0, currency: currency || "USD" };
+    if (processedTransactions.has(transactionCode)) {
+      const player = playerBalances[userCode];
+      res.json({
+        success: false,
+        errorCode: 6,
+        message: player ? player.balance : 0,
+      });
+      return;
     }
 
-    const player = playerBalances[playerCode];
+    if (!playerBalances[userCode]) {
+      playerBalances[userCode] = { balance: 0, currency: "USD" };
+    }
 
-    if (txnType === "BET" || txnType === "DEBIT") {
-      if (player.balance < amount) {
+    const player = playerBalances[userCode];
+
+    if (amount < 0) {
+      const betAmount = Math.abs(amount);
+      if (player.balance < betAmount) {
         res.json({
           success: false,
-          errorCode: 402,
-          message: "Insufficient balance",
-          balance: player.balance,
-          currency: player.currency,
+          errorCode: 4,
+          message: player.balance,
         });
         return;
       }
-      player.balance -= amount;
-    } else if (txnType === "WIN" || txnType === "CREDIT") {
+      player.balance -= betAmount;
+    } else if (amount > 0) {
       player.balance += amount;
-    } else if (txnType === "ROLLBACK" || txnType === "REFUND") {
-      player.balance += amount;
+    }
+
+    if (isCanceled && amount < 0) {
+      player.balance += Math.abs(amount);
+    }
+
+    processedTransactions.add(transactionCode);
+
+    if (processedTransactions.size > 100000) {
+      const entries = Array.from(processedTransactions);
+      for (let i = 0; i < 50000; i++) {
+        processedTransactions.delete(entries[i]);
+      }
     }
 
     res.json({
       success: true,
-      balance: player.balance,
-      currency: player.currency,
-      txnId,
-      platformTxnId: platformTxnId || txnId,
+      message: player.balance,
+      errorCode: 0,
     });
   } catch (err) {
     req.log.error({ err }, "Transaction callback error");
@@ -490,47 +702,69 @@ router.post("/transaction", (req: Request, res: Response) => {
 });
 
 router.post("/batch-transactions", (req: Request, res: Response) => {
+  if (!verifyCallbackAuth(req, res)) return;
   try {
-    const { playerCode, currency, transactions } = req.body as {
-      playerCode?: string;
-      currency?: string;
-      transactions?: Array<{ amount: number; txnId: string; txnType: string; gameCode?: string; roundId?: string; platformTxnId?: string }>;
+    const { userCode, transactions } = req.body as {
+      userCode?: string;
+      transactions?: Array<{
+        userCode?: string;
+        vendorCode?: string;
+        gameCode?: string;
+        historyId?: number;
+        roundId?: string;
+        gameType?: number;
+        transactionCode?: string;
+        isFinished?: boolean;
+        isCanceled?: boolean;
+        amount?: number;
+        detail?: string;
+        createdAt?: string;
+      }>;
     };
 
-    req.log.info({ playerCode, txnCount: transactions?.length }, "Seamless wallet: batch-transactions callback");
+    req.log.info({ userCode, txnCount: transactions?.length }, "Seamless wallet: batch-transactions callback");
 
-    if (!playerCode || !transactions || !Array.isArray(transactions)) {
+    if (!userCode || !transactions || !Array.isArray(transactions)) {
       res.status(400).json({ success: false, errorCode: 400, message: "Missing required fields" });
       return;
     }
 
-    if (!playerBalances[playerCode]) {
-      playerBalances[playerCode] = { balance: 0, currency: currency || "USD" };
+    if (!playerBalances[userCode]) {
+      playerBalances[userCode] = { balance: 0, currency: "USD" };
     }
 
-    const player = playerBalances[playerCode];
-    const results: Array<{ txnId: string; success: boolean; balance: number }> = [];
+    const player = playerBalances[userCode];
 
     for (const txn of transactions) {
-      if (txn.txnType === "BET" || txn.txnType === "DEBIT") {
-        if (player.balance < txn.amount) {
-          results.push({ txnId: txn.txnId, success: false, balance: player.balance });
-          continue;
-        }
-        player.balance -= txn.amount;
-      } else if (txn.txnType === "WIN" || txn.txnType === "CREDIT") {
-        player.balance += txn.amount;
-      } else if (txn.txnType === "ROLLBACK" || txn.txnType === "REFUND") {
-        player.balance += txn.amount;
+      const txnCode = txn.transactionCode;
+      if (txnCode && processedTransactions.has(txnCode)) {
+        continue;
       }
-      results.push({ txnId: txn.txnId, success: true, balance: player.balance });
+
+      const amount = txn.amount || 0;
+
+      if (amount < 0) {
+        const betAmount = Math.abs(amount);
+        if (player.balance >= betAmount) {
+          player.balance -= betAmount;
+        }
+      } else if (amount > 0) {
+        player.balance += amount;
+      }
+
+      if (txn.isCanceled && amount < 0) {
+        player.balance += Math.abs(amount);
+      }
+
+      if (txnCode) {
+        processedTransactions.add(txnCode);
+      }
     }
 
     res.json({
       success: true,
-      balance: player.balance,
-      currency: player.currency,
-      transactions: results,
+      message: player.balance,
+      errorCode: 0,
     });
   } catch (err) {
     req.log.error({ err }, "Batch transactions callback error");

@@ -29,7 +29,7 @@ export function ControlPanel() {
   const handleCreatePlayer = async () => {
     if (!newPlayerCode) return;
     try {
-      const res = await createPlayer({ data: { playerCode: newPlayerCode, currency: store.currency } });
+      const res = await createPlayer({ data: { userCode: newPlayerCode } });
       if (res.success) {
         store.setPlayerSession({ playerCode: newPlayerCode, balance: 0 });
         toast({ title: "Player Created", description: `Active player set to ${newPlayerCode}` });
@@ -44,7 +44,7 @@ export function ControlPanel() {
     if (!depositAmount || isNaN(Number(depositAmount))) return;
     try {
       const res = await depositBalance({ 
-        data: { playerCode: store.playerCode, amount: Number(depositAmount), txnId: `TXN_${Date.now()}` } 
+        data: { userCode: store.playerCode, amount: Number(depositAmount) } 
       });
       if (res.success && res.message !== undefined) {
         store.setPlayerSession({ balance: res.message });
@@ -64,7 +64,7 @@ export function ControlPanel() {
     }
     try {
       const res = await withdrawBalance({
-        data: { playerCode: store.playerCode, amount: store.balance, txnId: `TXN_${Date.now()}` }
+        data: { userCode: store.playerCode, amount: -1 }
       });
       if (res.success && res.message !== undefined) {
         store.setPlayerSession({ balance: res.message });
@@ -96,7 +96,7 @@ export function ControlPanel() {
               </DialogHeader>
               <div className="space-y-4 pt-4">
                 <Input 
-                  placeholder="Player Code (e.g. test_002)" 
+                  placeholder="User Code (e.g. test_002)" 
                   className="bg-black/50 border-white/10"
                   value={newPlayerCode}
                   onChange={(e) => setNewPlayerCode(e.target.value)}

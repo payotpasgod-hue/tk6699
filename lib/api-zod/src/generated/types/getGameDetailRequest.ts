@@ -9,5 +9,4 @@
 export interface GetGameDetailRequest {
   vendorCode: string;
   gameCode: string;
-  language?: string;
 }

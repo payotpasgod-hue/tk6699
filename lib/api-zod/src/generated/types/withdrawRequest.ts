@@ -7,7 +7,7 @@
  */
 
 export interface WithdrawRequest {
-  playerCode: string;
+  userCode: string;
+  /** Amount to withdraw, or -1 to withdraw all */
   amount: number;
-  txnId?: string;
 }

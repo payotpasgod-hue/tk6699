@@ -9,8 +9,8 @@
 export interface LaunchGameRequest {
   vendorCode: string;
   gameCode: string;
-  playerCode: string;
+  userCode: string;
   language?: string;
-  homeUrl?: string;
-  depositUrl?: string;
+  lobbyUrl?: string;
+  theme?: number;
 }

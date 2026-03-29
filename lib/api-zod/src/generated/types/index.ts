@@ -8,6 +8,7 @@
 
 export * from "./apiError";
 export * from "./balanceResponse";
+export * from "./cacheResponse";
 export * from "./configResponse";
 export * from "./createPlayerRequest";
 export * from "./createTokenRequest";
@@ -21,8 +22,8 @@ export * from "./getGamesRequest";
 export * from "./healthStatus";
 export * from "./launchGameRequest";
 export * from "./launchGameResponse";
-export * from "./playerCodeRequest";
 export * from "./playerResponse";
+export * from "./userCodeRequest";
 export * from "./vendor";
 export * from "./vendorListResponse";
 export * from "./withdrawRequest";

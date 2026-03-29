@@ -30,7 +30,7 @@ export interface CreateTokenResponse {
 
 export interface Vendor {
   vendorCode: string;
-  /** 1=live casino, 2=slot, 3=mini-game */
+  /** 1=live casino, 2=slot, 3=mini-game, 4=fishing, 6=board */
   type: number;
   name: string;
   url?: string;
@@ -69,7 +69,6 @@ export interface GameListResponse {
 export interface GetGameDetailRequest {
   vendorCode: string;
   gameCode: string;
-  language?: string;
 }
 
 export interface GameDetailResponse {
@@ -81,10 +80,10 @@ export interface GameDetailResponse {
 export interface LaunchGameRequest {
   vendorCode: string;
   gameCode: string;
-  playerCode: string;
+  userCode: string;
   language?: string;
-  homeUrl?: string;
-  depositUrl?: string;
+  lobbyUrl?: string;
+  theme?: number;
 }
 
 export interface LaunchGameResponse {
@@ -95,9 +94,7 @@ export interface LaunchGameResponse {
 }
 
 export interface CreatePlayerRequest {
-  playerCode: string;
-  currency?: string;
-  nickname?: string;
+  userCode: string;
 }
 
 export interface PlayerResponse {
@@ -106,8 +103,8 @@ export interface PlayerResponse {
   errorCode?: number;
 }
 
-export interface PlayerCodeRequest {
-  playerCode: string;
+export interface UserCodeRequest {
+  userCode: string;
 }
 
 export interface BalanceResponse {
@@ -117,18 +114,28 @@ export interface BalanceResponse {
 }
 
 export interface DepositRequest {
-  playerCode: string;
+  userCode: string;
   amount: number;
-  txnId?: string;
 }
 
 export interface WithdrawRequest {
-  playerCode: string;
+  userCode: string;
+  /** Amount to withdraw, or -1 to withdraw all */
   amount: number;
-  txnId?: string;
 }
 
 export interface ConfigResponse {
   hasCredentials: boolean;
   apiEndpoint?: string;
+  clientId?: string;
+}
+
+export interface CacheResponse {
+  success: boolean;
+  vendors?: Vendor[];
+  games?: Game[];
+  timestamp?: number;
+  totalGames?: number;
+  totalVendors?: number;
+  failedVendors?: number;
 }
