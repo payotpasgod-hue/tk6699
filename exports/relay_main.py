@@ -1,3 +1,4 @@
+
 #!/usr/bin/env python3
 """OroPlay Relay Proxy for Ubuntu 22.04+ / Python 3.10+"""
 
@@ -26,18 +27,15 @@ TIMEOUT: float = float(os.getenv("PROXY_TIMEOUT", "60"))
 PORT: int = int(os.getenv("RELAY_PORT", "9000"))
 
 
-@app.on_event("startup")
-async def on_startup() -> None:
-    log.info("OroPlay Relay started")
-    log.info("  Upstream : %s", UPSTREAM)
-    log.info("  Callback : %s", APP_CALLBACK_BASE)
-    log.info("  Port     : %d", PORT)
+log.info("OroPlay Relay configured")
+log.info("  Upstream : %s", UPSTREAM)
+log.info("  Callback : %s", APP_CALLBACK_BASE)
+log.info("  Port     : %d", PORT)
 
 
 @app.get("/")
 async def root() -> Dict:
     return {"ok": True, "service": "oroplay-relay", "upstream": UPSTREAM}
-
 
 @app.get("/health")
 async def health() -> Response:
@@ -120,9 +118,11 @@ async def cb_batch(request: Request) -> Response:
 
 if __name__ == "__main__":
     import uvicorn
+    import pathlib
 
+    filename = pathlib.Path(__file__).stem
     uvicorn.run(
-        "relay_main:app",
+        f"{filename}:app",
         host="0.0.0.0",
         port=PORT,
         reload=False,
