@@ -56,7 +56,7 @@ Every package extends `tsconfig.base.json` which sets `composite: true`. The roo
 Premium React + Vite casino lobby frontend. Full OroPlay API-connected game testing platform.
 
 - Entry: `src/main.tsx` → `src/App.tsx` → `src/pages/Lobby.tsx`
-- Components: `src/components/casino/` — Navbar, Hero, StatsCards, ConfigPanel, ControlPanel, ProviderChips, GameGrid, GameLauncher
+- Components: `src/components/casino/` — Navbar, Hero, StatsCards, ConfigPanel, ControlPanel, ProviderChips, GameGrid, GameDetailModal, GameLauncher
 - State: `src/store/use-lobby-store.ts` — Zustand store (persisted to localStorage, excludes secrets)
 - Theme: `src/index.css` — Luxury dark casino theme (deep midnight navy, violet, cyan, gold)
 - All API calls proxy through `/api/oroplay/*` on the backend — never directly to OroPlay

@@ -14,21 +14,21 @@ export function StatsCards() {
       bg: isConnected ? "bg-green-400/10" : "bg-destructive/10"
     },
     {
-      title: "Providers Loaded",
+      title: "Providers",
       value: vendors.length.toString(),
       icon: Server,
       color: "text-primary",
       bg: "bg-primary/10"
     },
     {
-      title: "Total Games",
-      value: games.length.toString(),
+      title: "Games",
+      value: games.length.toLocaleString(),
       icon: Gamepad2,
       color: "text-secondary",
       bg: "bg-secondary/10"
     },
     {
-      title: "Active Balance",
+      title: "Balance",
       value: `$${balance.toFixed(2)}`,
       icon: Wallet,
       color: "text-accent",
@@ -37,21 +37,21 @@ export function StatsCards() {
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
       {stats.map((stat, i) => (
         <motion.div
           key={stat.title}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: i * 0.1 }}
-          className="glass-panel p-6 rounded-2xl flex items-center gap-5"
+          transition={{ duration: 0.3, delay: i * 0.05 }}
+          className="glass-panel p-4 rounded-xl flex items-center gap-4"
         >
-          <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${stat.bg}`}>
-            <stat.icon className={`w-7 h-7 ${stat.color}`} />
+          <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${stat.bg}`}>
+            <stat.icon className={`w-5 h-5 ${stat.color}`} />
           </div>
-          <div>
-            <p className="text-sm text-muted-foreground font-semibold mb-1 uppercase tracking-wider">{stat.title}</p>
-            <h3 className="text-2xl font-display font-bold text-white">{stat.value}</h3>
+          <div className="min-w-0">
+            <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">{stat.title}</p>
+            <h3 className="text-lg font-display font-bold text-white truncate">{stat.value}</h3>
           </div>
         </motion.div>
       ))}

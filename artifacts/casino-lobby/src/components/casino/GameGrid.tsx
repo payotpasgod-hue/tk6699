@@ -1,171 +1,268 @@
 import { useMemo, useState } from "react";
-import { Play, Info, AlertTriangle, RefreshCw } from "lucide-react";
+import { Play, AlertTriangle, ChevronLeft, ChevronRight, Gamepad2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useLobbyStore } from "@/store/use-lobby-store";
-import { useLaunchGame } from "@workspace/api-client-react";
-import { useToast } from "@/hooks/use-toast";
+import { GameDetailModal } from "./GameDetailModal";
 import type { Game } from "@workspace/api-client-react";
 
-export function GameGrid({ isLoading }: { isLoading: boolean }) {
-  const store = useLobbyStore();
-  const { toast } = useToast();
-  const [launchingGame, setLaunchingGame] = useState<string | null>(null);
+const GAMES_PER_PAGE = 30;
 
-  const { mutateAsync: launchGame } = useLaunchGame();
+const TYPE_LABELS: Record<number, string> = {
+  1: "Live",
+  2: "Slot",
+  3: "Mini",
+  4: "Fish",
+  6: "Board",
+};
+
+interface GameGridProps {
+  isLoading: boolean;
+  loadProgress?: { current: number; total: number };
+}
+
+export function GameGrid({ isLoading, loadProgress }: GameGridProps) {
+  const store = useLobbyStore();
+  const [selectedGame, setSelectedGame] = useState<Game | null>(null);
 
   const filteredGames = useMemo(() => {
     return store.games.filter(game => {
-      // Vendor match
       if (store.selectedVendorCode !== "ALL" && game.vendorCode !== store.selectedVendorCode) return false;
-      
-      // Search match
       if (store.searchQuery && !game.gameName.toLowerCase().includes(store.searchQuery.toLowerCase())) return false;
-      
-      // Type match (needs vendor mapping to check type)
       if (store.gameTypeFilter !== "ALL") {
         const vendor = store.vendors.find(v => v.vendorCode === game.vendorCode);
         if (vendor && vendor.type.toString() !== store.gameTypeFilter) return false;
       }
-      
       return true;
     });
   }, [store.games, store.searchQuery, store.selectedVendorCode, store.gameTypeFilter, store.vendors]);
 
-  const handleLaunch = async (game: Game) => {
-    if (!store.playerCode) {
-      toast({ variant: "destructive", title: "No Player", description: "Set a player code first." });
-      return;
-    }
-    
-    setLaunchingGame(game.gameCode);
-    try {
-      const res = await launchGame({
-        data: {
-          vendorCode: game.vendorCode,
-          gameCode: game.gameCode,
-          playerCode: store.playerCode,
-          language: store.language,
-          homeUrl: window.location.origin
-        }
-      });
-      
-      if (res.success && res.message) {
-        store.launchGame(res.message, game);
-        setTimeout(() => {
-          document.getElementById('game-launcher-area')?.scrollIntoView({ behavior: 'smooth' });
-        }, 300);
-      } else {
-        throw new Error("Failed to get game URL");
-      }
-    } catch (err: any) {
-      toast({ variant: "destructive", title: "Launch Failed", description: err.message || "An error occurred launching the game." });
-    } finally {
-      setLaunchingGame(null);
-    }
-  };
+  const totalPages = Math.ceil(filteredGames.length / GAMES_PER_PAGE);
+  const paginatedGames = useMemo(() => {
+    const start = (store.gamesPage - 1) * GAMES_PER_PAGE;
+    return filteredGames.slice(start, start + GAMES_PER_PAGE);
+  }, [filteredGames, store.gamesPage]);
+
+  const selectedVendor = selectedGame
+    ? store.vendors.find(v => v.vendorCode === selectedGame.vendorCode) || null
+    : null;
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 lg:gap-6">
-        {Array.from({ length: 10 }).map((_, i) => (
-          <div key={i} className="rounded-2xl bg-card border border-white/5 overflow-hidden animate-pulse">
-            <div className="aspect-[4/3] bg-white/5" />
-            <div className="p-4 space-y-3">
-              <div className="h-4 bg-white/10 rounded w-1/3" />
-              <div className="h-5 bg-white/10 rounded w-3/4" />
+      <div className="mb-8">
+        {loadProgress && loadProgress.total > 0 && (
+          <div className="mb-6">
+            <div className="flex items-center justify-between text-sm text-muted-foreground mb-2">
+              <span>Loading providers...</span>
+              <span>{loadProgress.current}/{loadProgress.total}</span>
+            </div>
+            <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-gradient-to-r from-primary to-secondary rounded-full transition-all duration-300"
+                style={{ width: `${(loadProgress.current / loadProgress.total) * 100}%` }}
+              />
             </div>
           </div>
-        ))}
+        )}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+          {Array.from({ length: 12 }).map((_, i) => (
+            <div key={i} className="rounded-xl bg-card/40 border border-white/5 overflow-hidden animate-pulse">
+              <div className="aspect-[4/3] bg-white/5" />
+              <div className="p-3 space-y-2">
+                <div className="h-3 bg-white/10 rounded w-1/3" />
+                <div className="h-4 bg-white/10 rounded w-3/4" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (store.games.length === 0) {
+    return (
+      <div className="glass-panel py-16 flex flex-col items-center justify-center rounded-2xl text-center px-4 mb-8">
+        <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center mb-5">
+          <Gamepad2 className="w-8 h-8 text-muted-foreground" />
+        </div>
+        <h3 className="text-xl font-display font-bold text-white mb-2">No Games Loaded</h3>
+        <p className="text-muted-foreground text-sm max-w-md">
+          Click "Load All Games" or "Refresh Cache" above to fetch games from all providers.
+        </p>
       </div>
     );
   }
 
   if (filteredGames.length === 0) {
     return (
-      <div className="glass-panel py-20 flex flex-col items-center justify-center rounded-3xl text-center px-4">
-        <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center mb-6">
-          <AlertTriangle className="w-10 h-10 text-muted-foreground" />
+      <div className="glass-panel py-16 flex flex-col items-center justify-center rounded-2xl text-center px-4 mb-8">
+        <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center mb-5">
+          <AlertTriangle className="w-8 h-8 text-muted-foreground" />
         </div>
-        <h3 className="text-2xl font-display font-bold text-white mb-2">No Games Found</h3>
-        <p className="text-muted-foreground max-w-md">
-          We couldn't find any games matching your current filters. Try changing the provider or clearing your search.
+        <h3 className="text-xl font-display font-bold text-white mb-2">No Matches</h3>
+        <p className="text-muted-foreground text-sm max-w-md">
+          No games match your current filters. Try changing the provider or clearing your search.
         </p>
       </div>
     );
   }
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 lg:gap-6">
-      {filteredGames.map((game) => (
-        <div 
-          key={`${game.vendorCode}-${game.gameCode}`}
-          className="group relative rounded-2xl bg-card/60 border border-white/10 overflow-hidden glass-panel-hover"
-        >
-          {/* Badges */}
-          <div className="absolute top-3 left-3 z-10 flex flex-col gap-2">
-            <Badge variant="outline" className="bg-black/50 backdrop-blur-md border-white/20 text-white font-semibold">
-              {store.vendors.find(v => v.vendorCode === game.vendorCode)?.name || game.provider || game.vendorCode}
-            </Badge>
-            {game.isNew && (
-              <Badge className="bg-accent text-accent-foreground font-bold border-none w-fit">NEW</Badge>
-            )}
-            {game.underMaintenance && (
-              <Badge variant="destructive" className="font-bold border-none w-fit">MAINTENANCE</Badge>
-            )}
+    <div className="mb-8">
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-sm text-muted-foreground">
+          Showing <span className="text-white font-semibold">{paginatedGames.length}</span> of <span className="text-white font-semibold">{filteredGames.length}</span> games
+        </p>
+        {totalPages > 1 && (
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => store.setGamesPage(Math.max(1, store.gamesPage - 1))}
+              disabled={store.gamesPage <= 1}
+              className="bg-white/5 border-white/10 h-8 w-8 p-0"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </Button>
+            <span className="text-sm text-muted-foreground px-2">
+              {store.gamesPage} / {totalPages}
+            </span>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => store.setGamesPage(Math.min(totalPages, store.gamesPage + 1))}
+              disabled={store.gamesPage >= totalPages}
+              className="bg-white/5 border-white/10 h-8 w-8 p-0"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </Button>
           </div>
+        )}
+      </div>
 
-          {/* Thumbnail area */}
-          <div className="aspect-[4/3] w-full relative bg-gradient-to-br from-black to-card">
-            {game.thumbnail ? (
-              <img 
-                src={game.thumbnail} 
-                alt={game.gameName}
-                loading="lazy"
-                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1518546543973-10eb0a7b45cb?w=500&h=400&fit=crop&q=80';
-                }}
-              />
-            ) : (
-              /* abstract geometric neon placeholder */
-              <img 
-                src="https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=500&h=400&fit=crop&q=80"
-                alt="Game placeholder"
-                className="w-full h-full object-cover opacity-60 mix-blend-luminosity transition-transform duration-500 group-hover:scale-110"
-              />
-            )}
-            
-            {/* Hover Overlay */}
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col items-center justify-center gap-3">
-              <Button 
-                className="bg-primary hover:bg-primary/90 rounded-full w-14 h-14 p-0 shadow-[0_0_20px_rgba(139,92,246,0.6)]"
-                disabled={game.underMaintenance || launchingGame === game.gameCode}
-                onClick={() => handleLaunch(game)}
-              >
-                {launchingGame === game.gameCode ? (
-                  <RefreshCw className="w-6 h-6 animate-spin text-white" />
-                ) : (
-                  <Play className="w-6 h-6 ml-1 text-white" fill="currentColor" />
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+        {paginatedGames.map((game) => {
+          const vendor = store.vendors.find(v => v.vendorCode === game.vendorCode);
+          const typeLabel = vendor ? TYPE_LABELS[vendor.type] || "" : "";
+          
+          return (
+            <div 
+              key={`${game.vendorCode}-${game.gameCode}`}
+              className="group relative rounded-xl bg-card/50 border border-white/[0.06] overflow-hidden hover:border-white/20 hover:shadow-[0_4px_24px_rgba(139,92,246,0.12)] transition-all duration-300 cursor-pointer"
+              onClick={() => setSelectedGame(game)}
+            >
+              <div className="absolute top-2 left-2 z-10 flex flex-col gap-1">
+                {game.isNew && (
+                  <Badge className="bg-green-500/90 text-white text-[10px] font-bold border-none px-1.5 py-0">NEW</Badge>
                 )}
-              </Button>
-              <Button variant="ghost" size="sm" className="text-white hover:bg-white/20 hover:text-white">
-                <Info className="w-4 h-4 mr-2" /> Details
-              </Button>
-            </div>
-          </div>
+                {game.underMaintenance && (
+                  <Badge variant="destructive" className="text-[10px] font-bold border-none px-1.5 py-0">DOWN</Badge>
+                )}
+              </div>
 
-          {/* Details */}
-          <div className="p-4 relative z-20 bg-gradient-to-t from-card to-transparent">
-            <h4 className="text-white font-bold text-lg truncate mb-1" title={game.gameName}>
-              {game.gameName}
-            </h4>
-            <p className="text-muted-foreground text-xs font-mono truncate">
-              {game.gameCode}
-            </p>
-          </div>
+              {typeLabel && (
+                <div className="absolute top-2 right-2 z-10">
+                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-black/60 backdrop-blur-sm border border-white/10 text-white/70 font-bold uppercase">
+                    {typeLabel}
+                  </span>
+                </div>
+              )}
+
+              <div className="aspect-[4/3] w-full relative bg-gradient-to-br from-card to-black overflow-hidden">
+                {game.thumbnail ? (
+                  <img 
+                    src={game.thumbnail} 
+                    alt={game.gameName}
+                    loading="lazy"
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none';
+                    }}
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/10 to-secondary/10">
+                    <Gamepad2 className="w-8 h-8 text-white/20" />
+                  </div>
+                )}
+                
+                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-all duration-200 flex items-center justify-center">
+                  <div className="bg-primary/90 rounded-full w-12 h-12 flex items-center justify-center shadow-[0_0_20px_rgba(139,92,246,0.6)]">
+                    <Play className="w-5 h-5 ml-0.5 text-white" fill="currentColor" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-2.5">
+                <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider truncate mb-0.5">
+                  {vendor?.name || game.vendorCode}
+                </p>
+                <h4 className="text-white font-bold text-sm truncate leading-tight" title={game.gameName}>
+                  {game.gameName}
+                </h4>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 mt-6">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => store.setGamesPage(Math.max(1, store.gamesPage - 1))}
+            disabled={store.gamesPage <= 1}
+            className="bg-white/5 border-white/10"
+          >
+            <ChevronLeft className="w-4 h-4 mr-1" /> Prev
+          </Button>
+          
+          {Array.from({ length: Math.min(5, totalPages) }).map((_, i) => {
+            let page: number;
+            if (totalPages <= 5) {
+              page = i + 1;
+            } else if (store.gamesPage <= 3) {
+              page = i + 1;
+            } else if (store.gamesPage >= totalPages - 2) {
+              page = totalPages - 4 + i;
+            } else {
+              page = store.gamesPage - 2 + i;
+            }
+
+            return (
+              <Button
+                key={page}
+                variant={store.gamesPage === page ? "default" : "outline"}
+                size="sm"
+                onClick={() => store.setGamesPage(page)}
+                className={store.gamesPage === page 
+                  ? "bg-primary text-white h-8 w-8 p-0" 
+                  : "bg-white/5 border-white/10 h-8 w-8 p-0"
+                }
+              >
+                {page}
+              </Button>
+            );
+          })}
+
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => store.setGamesPage(Math.min(totalPages, store.gamesPage + 1))}
+            disabled={store.gamesPage >= totalPages}
+            className="bg-white/5 border-white/10"
+          >
+            Next <ChevronRight className="w-4 h-4 ml-1" />
+          </Button>
         </div>
-      ))}
+      )}
+
+      <GameDetailModal
+        game={selectedGame}
+        vendor={selectedVendor}
+        open={!!selectedGame}
+        onClose={() => setSelectedGame(null)}
+      />
     </div>
   );
 }

@@ -3,7 +3,6 @@ import { persist } from "zustand/middleware";
 import type { Game, Vendor } from "@workspace/api-client-react";
 
 interface LobbyState {
-  // API & Auth
   apiEndpoint: string;
   clientId: string;
   clientSecret: string;
@@ -11,31 +10,33 @@ interface LobbyState {
   setApiConfig: (config: { apiEndpoint?: string; clientId?: string; clientSecret?: string }) => void;
   setIsConnected: (status: boolean) => void;
 
-  // Player Session
   playerCode: string;
   balance: number;
   currency: string;
   setPlayerSession: (session: { playerCode?: string; balance?: number; currency?: string }) => void;
 
-  // Lobby Data
   vendors: Vendor[];
   games: Game[];
   setVendors: (vendors: Vendor[]) => void;
   setGames: (games: Game[]) => void;
   addGames: (games: Game[]) => void;
 
-  // Filters & Search
   searchQuery: string;
   selectedVendorCode: string;
-  gameTypeFilter: string; // "ALL", "1" (Live), "2" (Slot), "3" (Mini)
+  gameTypeFilter: string;
   language: string;
   setFilters: (filters: { search?: string; vendor?: string; type?: string; language?: string }) => void;
 
-  // Launch State
   launchedGameUrl: string | null;
   launchedGameInfo: Game | null;
   launchGame: (url: string, game: Game) => void;
   closeGame: () => void;
+
+  cacheTimestamp: number | null;
+  setCacheTimestamp: (ts: number | null) => void;
+
+  gamesPage: number;
+  setGamesPage: (page: number) => void;
 }
 
 export const useLobbyStore = create<LobbyState>()(
@@ -56,12 +57,18 @@ export const useLobbyStore = create<LobbyState>()(
       vendors: [],
       games: [],
       setVendors: (vendors) => set({ vendors }),
-      setGames: (games) => set({ games }),
+      setGames: (games) => set({ games, gamesPage: 1 }),
       addGames: (newGames) => set((state) => {
-        // Avoid duplicates by gameCode
-        const existingCodes = new Set(state.games.map(g => g.gameCode));
-        const filteredNew = newGames.filter(g => !existingCodes.has(g.gameCode));
-        return { games: [...state.games, ...filteredNew] };
+        const existingKeys = new Set(state.games.map(g => `${g.vendorCode}::${g.gameCode}`));
+        const filtered: Game[] = [];
+        for (const g of newGames) {
+          const key = `${g.vendorCode}::${g.gameCode}`;
+          if (!existingKeys.has(key)) {
+            existingKeys.add(key);
+            filtered.push(g);
+          }
+        }
+        return { games: [...state.games, ...filtered] };
       }),
 
       searchQuery: "",
@@ -73,12 +80,19 @@ export const useLobbyStore = create<LobbyState>()(
         selectedVendorCode: filters.vendor ?? state.selectedVendorCode,
         gameTypeFilter: filters.type ?? state.gameTypeFilter,
         language: filters.language ?? state.language,
+        gamesPage: 1,
       })),
 
       launchedGameUrl: null,
       launchedGameInfo: null,
       launchGame: (url, game) => set({ launchedGameUrl: url, launchedGameInfo: game }),
       closeGame: () => set({ launchedGameUrl: null, launchedGameInfo: null }),
+
+      cacheTimestamp: null,
+      setCacheTimestamp: (ts) => set({ cacheTimestamp: ts }),
+
+      gamesPage: 1,
+      setGamesPage: (page) => set({ gamesPage: page }),
     }),
     {
       name: "casino-lobby-storage",
@@ -87,7 +101,7 @@ export const useLobbyStore = create<LobbyState>()(
         clientId: state.clientId,
         playerCode: state.playerCode,
         language: state.language
-      }), // Don't persist secret, games, or launch state
+      }),
     }
   )
 );
