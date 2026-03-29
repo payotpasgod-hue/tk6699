@@ -20,7 +20,7 @@ export function BottomNav() {
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 sm:hidden bg-[#0a0e1a]/95 backdrop-blur-xl border-t border-white/5">
-      <div className="flex items-center justify-around py-1.5 px-1">
+      <div className="flex items-center justify-around py-1.5 px-1 safe-bottom">
         {GAME_TABS.map((item) => {
           const Icon = item.icon;
           const isActive = !isBonus && gameTypeFilter === item.id;

@@ -2,7 +2,7 @@
 
 ## Overview
 
-Production casino platform (TK6699 branding) with phone-based auth, admin dashboard, and OroPlay game integration via relay VPS proxy. Currency: BDT (৳). Built as a pnpm workspace monorepo using TypeScript.
+Production casino platform (TK6699 branding) with phone-based auth, admin dashboard, and OroPlay game integration via relay VPS proxy. Currency: BDT (৳). Built as a pnpm workspace monorepo using TypeScript. Mobile-first PWA with install prompt.
 
 ## Stack
 
@@ -14,7 +14,8 @@ Production casino platform (TK6699 branding) with phone-based auth, admin dashbo
 - **Database**: PostgreSQL + Drizzle ORM
 - **Frontend**: React + Vite + Tailwind + shadcn/ui
 - **State**: Zustand (persisted)
-- **Auth**: Phone + password, bcryptjs hashing, bearer token sessions
+- **Auth**: Phone + password, bcryptjs hashing, bearer token sessions, rate-limited registration
+- **PWA**: manifest.json, service worker (network-first + cache fallback), install prompt (Android/iOS)
 - **Validation**: Zod (`zod/v4`), `drizzle-zod`
 - **Build**: esbuild (API server), Vite (frontend)
 
@@ -93,6 +94,23 @@ artifacts-monorepo/
 - OroPlay token endpoint requires admin authentication
 - Admin endpoints require role="admin"
 - Session tokens: 30-day expiry, Bearer token in Authorization header
+- Registration rate-limited: 5 registrations per IP per hour
+
+## Bonus System
+
+- **Registration bonus**: ৳19 credited immediately on new account creation (no deposit required)
+- **Welcome bonus package**: ৳575 total (displayed on login/register pages via popup modal)
+  - ৳19 registration (free), ৳156 first deposit (100%), ৳100 second deposit (50%), ৳100 third deposit (25%), ৳100 daily cashback (10%), ৳100 VIP weekly
+- **Bonus Center page**: Gift boxes, spin wheel, daily rewards, VIP tiers, referral — UI-only (decorative, no real balance mutations)
+- **Welcome popup**: Appears on first visit to login page (session-scoped, dismissed after viewing)
+
+## PWA Support
+
+- `public/manifest.json` — App manifest with TK6699 branding, standalone display, portrait orientation
+- `public/sw.js` — Service worker with network-first strategy + cache fallback
+- `PWAInstallPrompt` component — Shows install banner (Android native prompt, iOS share instructions)
+- `index.html` — apple-mobile-web-app-capable, theme-color, viewport-fit=cover meta tags
+- All PWA paths use relative URLs to support non-root base path deployment
 
 ## Network Architecture
 

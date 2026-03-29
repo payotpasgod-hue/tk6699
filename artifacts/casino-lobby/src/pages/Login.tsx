@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Phone, Lock, Eye, EyeOff, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { useAuthStore } from "@/store/use-auth-store";
 import { apiRequest } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+import { WelcomeBonusModal } from "@/components/casino/WelcomeBonusModal";
 
 export default function Login() {
   const [, setLocation] = useLocation();
@@ -15,6 +16,21 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [showBonus, setShowBonus] = useState(false);
+
+  useEffect(() => {
+    const seen = sessionStorage.getItem("bonus-popup-seen");
+    if (!seen) {
+      const timer = setTimeout(() => setShowBonus(true), 800);
+      return () => clearTimeout(timer);
+    }
+    return undefined;
+  }, []);
+
+  const dismissBonus = () => {
+    setShowBonus(false);
+    sessionStorage.setItem("bonus-popup-seen", "1");
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,24 +53,37 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-[#070b14] flex items-center justify-center px-4">
+    <div className="min-h-[100dvh] bg-[#070b14] flex items-center justify-center px-4 py-6">
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute top-1/3 left-1/3 w-80 h-80 bg-amber-500/5 blur-[120px] rounded-full" />
         <div className="absolute bottom-1/3 right-1/3 w-80 h-80 bg-orange-500/5 blur-[120px] rounded-full" />
       </div>
 
       <div className="relative w-full max-w-sm">
-        <div className="text-center mb-8">
-          <img src="/images/logo.png" alt="TK6699" className="w-16 h-16 rounded-xl shadow-lg shadow-amber-500/20 mx-auto mb-4 object-cover" />
-          <h1 className="text-3xl font-display font-bold text-white tracking-wide">
+        <div className="text-center mb-6">
+          <img src="/images/logo.png" alt="TK6699" className="w-14 h-14 rounded-xl shadow-lg shadow-amber-500/20 mx-auto mb-3 object-cover" />
+          <h1 className="text-2xl sm:text-3xl font-display font-bold text-white tracking-wide">
             TK<span className="text-amber-400">6699</span>
           </h1>
-          <p className="text-white/30 text-sm mt-2">Sign in to your account</p>
+          <p className="text-white/30 text-xs sm:text-sm mt-1">Sign in to your account</p>
         </div>
 
-        <form onSubmit={handleLogin} className="bg-[#111827]/80 backdrop-blur-xl border border-white/5 p-6 rounded-2xl space-y-5">
+        <div
+          onClick={() => { dismissBonus(); setLocation("/register"); }}
+          className="mb-4 p-3 rounded-xl bg-gradient-to-r from-green-500/15 to-emerald-500/10 border border-green-500/30 cursor-pointer hover:border-green-400/50 transition-colors"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-bold text-green-400">New Player? Get ৳575 Bonus!</p>
+              <p className="text-[10px] text-white/40 mt-0.5">৳19 FREE just for registering — No deposit needed</p>
+            </div>
+            <span className="px-2 py-1 rounded-lg bg-green-500 text-[10px] font-bold text-white animate-pulse">CLAIM</span>
+          </div>
+        </div>
+
+        <form onSubmit={handleLogin} className="bg-[#111827]/80 backdrop-blur-xl border border-white/5 p-5 sm:p-6 rounded-2xl space-y-4">
           <div>
-            <label className="text-xs font-semibold text-white/30 uppercase tracking-wider mb-2 block">
+            <label className="text-[10px] sm:text-xs font-semibold text-white/30 uppercase tracking-wider mb-1.5 block">
               Phone Number
             </label>
             <div className="relative">
@@ -62,7 +91,7 @@ export default function Login() {
               <Input
                 type="tel"
                 placeholder="01XXXXXXXXX"
-                className="pl-10 bg-white/[0.03] border-white/5 h-11 focus-visible:ring-amber-500"
+                className="pl-10 bg-white/[0.03] border-white/5 h-11 focus-visible:ring-amber-500 text-sm"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
               />
@@ -70,7 +99,7 @@ export default function Login() {
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-white/30 uppercase tracking-wider mb-2 block">
+            <label className="text-[10px] sm:text-xs font-semibold text-white/30 uppercase tracking-wider mb-1.5 block">
               Password
             </label>
             <div className="relative">
@@ -78,7 +107,7 @@ export default function Login() {
               <Input
                 type={showPassword ? "text" : "password"}
                 placeholder="Enter password"
-                className="pl-10 pr-10 bg-white/[0.03] border-white/5 h-11 focus-visible:ring-amber-500"
+                className="pl-10 pr-10 bg-white/[0.03] border-white/5 h-11 focus-visible:ring-amber-500 text-sm"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
@@ -95,7 +124,7 @@ export default function Login() {
           <Button
             type="submit"
             disabled={isLoading}
-            className="w-full h-11 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-black font-bold rounded-xl shadow-lg shadow-amber-500/20"
+            className="w-full h-11 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-black font-bold rounded-xl shadow-lg shadow-amber-500/20 text-sm"
           >
             {isLoading ? (
               <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
@@ -108,14 +137,14 @@ export default function Login() {
 
           <div className="relative flex items-center gap-3 my-1">
             <div className="flex-1 h-px bg-white/10" />
-            <span className="text-xs text-white/20">OR</span>
+            <span className="text-[10px] sm:text-xs text-white/20">OR</span>
             <div className="flex-1 h-px bg-white/10" />
           </div>
 
           <button
             type="button"
             onClick={() => toast({ title: "Coming Soon", description: "Google sign-in will be available soon" })}
-            className="w-full h-11 flex items-center justify-center gap-3 bg-white hover:bg-gray-100 text-gray-800 font-semibold rounded-xl transition-colors"
+            className="w-full h-11 flex items-center justify-center gap-3 bg-white hover:bg-gray-100 text-gray-800 font-semibold rounded-xl transition-colors text-sm"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" />
@@ -126,7 +155,7 @@ export default function Login() {
             Sign in with Google
           </button>
 
-          <p className="text-center text-sm text-white/30">
+          <p className="text-center text-xs sm:text-sm text-white/30">
             Don't have an account?{" "}
             <button
               type="button"
@@ -138,6 +167,13 @@ export default function Login() {
           </p>
         </form>
       </div>
+
+      {showBonus && (
+        <WelcomeBonusModal
+          onClose={dismissBonus}
+          onRegister={() => { dismissBonus(); setLocation("/register"); }}
+        />
+      )}
     </div>
   );
 }

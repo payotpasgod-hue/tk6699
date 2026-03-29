@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { Phone, Lock, Eye, EyeOff, UserPlus, User } from "lucide-react";
+import { Phone, Lock, Eye, EyeOff, UserPlus, User, Gift, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuthStore } from "@/store/use-auth-store";
@@ -28,7 +28,7 @@ export default function Register() {
         body: JSON.stringify({ phone, password, displayName: displayName || undefined }),
       });
       setAuth(data.token, data.user);
-      toast({ title: "Account Created!", description: `Welcome, ${data.user.displayName}` });
+      toast({ title: "৳19 Bonus Added!", description: `Welcome ${data.user.displayName}! Your registration bonus is ready.` });
       setLocation("/");
     } catch (err: any) {
       toast({ variant: "destructive", title: "Registration Failed", description: err.message });
@@ -38,24 +38,39 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen bg-[#070b14] flex items-center justify-center px-4">
+    <div className="min-h-[100dvh] bg-[#070b14] flex items-center justify-center px-4 py-6">
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute top-1/3 left-1/3 w-80 h-80 bg-amber-500/5 blur-[120px] rounded-full" />
         <div className="absolute bottom-1/3 right-1/3 w-80 h-80 bg-orange-500/5 blur-[120px] rounded-full" />
       </div>
 
       <div className="relative w-full max-w-sm">
-        <div className="text-center mb-8">
-          <img src="/images/logo.png" alt="TK6699" className="w-16 h-16 rounded-xl shadow-lg shadow-amber-500/20 mx-auto mb-4 object-cover" />
-          <h1 className="text-3xl font-display font-bold text-white tracking-wide">
+        <div className="text-center mb-5">
+          <img src="/images/logo.png" alt="TK6699" className="w-14 h-14 rounded-xl shadow-lg shadow-amber-500/20 mx-auto mb-3 object-cover" />
+          <h1 className="text-2xl sm:text-3xl font-display font-bold text-white tracking-wide">
             TK<span className="text-amber-400">6699</span>
           </h1>
-          <p className="text-white/30 text-sm mt-2">Create your account</p>
+          <p className="text-white/30 text-xs sm:text-sm mt-1">Create your account</p>
         </div>
 
-        <form onSubmit={handleRegister} className="bg-[#111827]/80 backdrop-blur-xl border border-white/5 p-6 rounded-2xl space-y-5">
+        <div className="mb-4 p-3 rounded-xl bg-gradient-to-r from-amber-500/15 to-orange-500/10 border border-amber-500/30 relative overflow-hidden">
+          <div className="absolute top-1 right-2 opacity-30">
+            <Sparkles className="w-8 h-8 text-amber-400" />
+          </div>
+          <div className="flex items-center gap-2 mb-1">
+            <Gift className="w-4 h-4 text-amber-400" />
+            <span className="text-xs font-bold text-amber-400">Registration Bonus</span>
+          </div>
+          <div className="flex items-baseline gap-1">
+            <span className="text-xl font-black text-amber-400">৳19</span>
+            <span className="text-[10px] text-amber-400/60">FREE</span>
+          </div>
+          <p className="text-[10px] text-white/40 mt-0.5">Instant credit — No deposit required!</p>
+        </div>
+
+        <form onSubmit={handleRegister} className="bg-[#111827]/80 backdrop-blur-xl border border-white/5 p-5 sm:p-6 rounded-2xl space-y-4">
           <div>
-            <label className="text-xs font-semibold text-white/30 uppercase tracking-wider mb-2 block">
+            <label className="text-[10px] sm:text-xs font-semibold text-white/30 uppercase tracking-wider mb-1.5 block">
               Display Name
             </label>
             <div className="relative">
@@ -63,7 +78,7 @@ export default function Register() {
               <Input
                 type="text"
                 placeholder="Your name"
-                className="pl-10 bg-white/[0.03] border-white/5 h-11 focus-visible:ring-amber-500"
+                className="pl-10 bg-white/[0.03] border-white/5 h-11 focus-visible:ring-amber-500 text-sm"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
               />
@@ -71,7 +86,7 @@ export default function Register() {
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-white/30 uppercase tracking-wider mb-2 block">
+            <label className="text-[10px] sm:text-xs font-semibold text-white/30 uppercase tracking-wider mb-1.5 block">
               Phone Number
             </label>
             <div className="relative">
@@ -79,7 +94,7 @@ export default function Register() {
               <Input
                 type="tel"
                 placeholder="01XXXXXXXXX"
-                className="pl-10 bg-white/[0.03] border-white/5 h-11 focus-visible:ring-amber-500"
+                className="pl-10 bg-white/[0.03] border-white/5 h-11 focus-visible:ring-amber-500 text-sm"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
               />
@@ -87,7 +102,7 @@ export default function Register() {
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-white/30 uppercase tracking-wider mb-2 block">
+            <label className="text-[10px] sm:text-xs font-semibold text-white/30 uppercase tracking-wider mb-1.5 block">
               Password
             </label>
             <div className="relative">
@@ -95,7 +110,7 @@ export default function Register() {
               <Input
                 type={showPassword ? "text" : "password"}
                 placeholder="Min 6 characters"
-                className="pl-10 pr-10 bg-white/[0.03] border-white/5 h-11 focus-visible:ring-amber-500"
+                className="pl-10 pr-10 bg-white/[0.03] border-white/5 h-11 focus-visible:ring-amber-500 text-sm"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
@@ -112,27 +127,27 @@ export default function Register() {
           <Button
             type="submit"
             disabled={isLoading}
-            className="w-full h-11 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-black font-bold rounded-xl shadow-lg shadow-amber-500/20"
+            className="w-full h-11 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-black font-bold rounded-xl shadow-lg shadow-amber-500/20 text-sm"
           >
             {isLoading ? (
               <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
             ) : (
               <>
-                <UserPlus className="w-4 h-4 mr-2" /> Create Account
+                <UserPlus className="w-4 h-4 mr-2" /> Register & Get ৳19 Free
               </>
             )}
           </Button>
 
           <div className="relative flex items-center gap-3 my-1">
             <div className="flex-1 h-px bg-white/10" />
-            <span className="text-xs text-white/20">OR</span>
+            <span className="text-[10px] sm:text-xs text-white/20">OR</span>
             <div className="flex-1 h-px bg-white/10" />
           </div>
 
           <button
             type="button"
             onClick={() => toast({ title: "Coming Soon", description: "Google sign-in will be available soon" })}
-            className="w-full h-11 flex items-center justify-center gap-3 bg-white hover:bg-gray-100 text-gray-800 font-semibold rounded-xl transition-colors"
+            className="w-full h-11 flex items-center justify-center gap-3 bg-white hover:bg-gray-100 text-gray-800 font-semibold rounded-xl transition-colors text-sm"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" />
@@ -143,7 +158,7 @@ export default function Register() {
             Sign up with Google
           </button>
 
-          <p className="text-center text-sm text-white/30">
+          <p className="text-center text-xs sm:text-sm text-white/30">
             Already have an account?{" "}
             <button
               type="button"

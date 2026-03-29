@@ -7,6 +7,22 @@ import crypto from "crypto";
 
 const router = Router();
 
+const registerAttempts = new Map<string, { count: number; resetAt: number }>();
+const REGISTER_LIMIT = 5;
+const REGISTER_WINDOW_MS = 60 * 60 * 1000;
+
+function checkRegisterRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const entry = registerAttempts.get(ip);
+  if (!entry || now > entry.resetAt) {
+    registerAttempts.set(ip, { count: 1, resetAt: now + REGISTER_WINDOW_MS });
+    return true;
+  }
+  if (entry.count >= REGISTER_LIMIT) return false;
+  entry.count++;
+  return true;
+}
+
 function generateToken(): string {
   return crypto.randomBytes(32).toString("hex");
 }
@@ -60,6 +76,12 @@ export async function adminMiddleware(req: Request, res: Response, next: NextFun
 
 router.post("/auth/register", async (req: Request, res: Response) => {
   try {
+    const clientIp = req.ip || req.socket.remoteAddress || "unknown";
+    if (!checkRegisterRateLimit(clientIp)) {
+      res.status(429).json({ success: false, message: "Too many registration attempts. Please try again later." });
+      return;
+    }
+
     const { phone, password, displayName } = req.body as {
       phone?: string;
       password?: string;
@@ -104,7 +126,7 @@ router.post("/auth/register", async (req: Request, res: Response) => {
         passwordHash,
         displayName: name,
         userCode,
-        balance: "0",
+        balance: "19",
         currency: "BDT",
         role: "player",
         isActive: true,

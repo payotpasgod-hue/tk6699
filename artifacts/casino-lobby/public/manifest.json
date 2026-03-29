@@ -1,0 +1,26 @@
+{
+  "name": "TK6699 Casino",
+  "short_name": "TK6699",
+  "description": "TK6699 Premium Casino — Slots, Live Casino, Fishing & More",
+  "start_url": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#070b14",
+  "theme_color": "#f59e0b",
+  "categories": ["entertainment", "games"],
+  "icons": [
+    {
+      "src": "./images/logo-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./images/logo-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "prefer_related_applications": false
+}
