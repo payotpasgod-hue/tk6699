@@ -51,7 +51,7 @@ export const useLobbyStore = create<LobbyState>()(
 
       playerCode: "test_player_001",
       balance: 0,
-      currency: "USD",
+      currency: "BDT",
       setPlayerSession: (session) => set((state) => ({ ...state, ...session })),
 
       vendors: [],

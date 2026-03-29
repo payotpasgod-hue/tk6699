@@ -48,7 +48,7 @@ export function ControlPanel() {
       });
       if (res.success && res.message !== undefined) {
         store.setPlayerSession({ balance: res.message });
-        toast({ title: "Deposit Successful", description: `Added $${depositAmount}. New balance: $${res.message}` });
+        toast({ title: "Deposit Successful", description: `Added ৳${depositAmount}. New balance: ৳${res.message}` });
         setDepositDialogOpen(false);
         setDepositAmount("");
       }
@@ -68,7 +68,7 @@ export function ControlPanel() {
       });
       if (res.success && res.message !== undefined) {
         store.setPlayerSession({ balance: res.message });
-        toast({ title: "Withdrawal Successful", description: `Withdrew all funds. New balance: $${res.message}` });
+        toast({ title: "Withdrawal Successful", description: `Withdrew all funds. New balance: ৳${res.message}` });
       }
     } catch (err: any) {
       toast({ variant: "destructive", title: "Withdrawal Failed", description: err.message || "Failed to withdraw" });
@@ -136,7 +136,7 @@ export function ControlPanel() {
                       className="flex-1 bg-white/5 border-white/10 text-xs"
                       onClick={() => setDepositAmount(amt.toString())}
                     >
-                      ${amt}
+                      ৳{amt}
                     </Button>
                   ))}
                 </div>

@@ -8,6 +8,8 @@ let cachedToken: string | null = null;
 let tokenExpiry: number = 0;
 let tokenPromise: Promise<string> | null = null;
 
+const DEFAULT_CURRENCY = "BDT";
+
 const playerBalances: Record<string, { balance: number; currency: string }> = {};
 const processedTransactions = new Set<string>();
 
@@ -277,7 +279,7 @@ router.post("/oroplay/game/launch", async (req: Request, res: Response) => {
     };
 
     if (!playerBalances[userCode]) {
-      playerBalances[userCode] = { balance: 0, currency: "USD" };
+      playerBalances[userCode] = { balance: 0, currency: DEFAULT_CURRENCY };
     }
 
     const data = await oroplayRequest(
@@ -363,7 +365,7 @@ router.post("/oroplay/cache/refresh", async (req: Request, res: Response) => {
   }
 });
 
-router.post("/oroplay/player/create", async (req: Request, res: Response) => {
+router.post("/oroplay/player/create", (req: Request, res: Response) => {
   try {
     const { userCode } = req.body as { userCode: string };
     if (!userCode) {
@@ -372,40 +374,19 @@ router.post("/oroplay/player/create", async (req: Request, res: Response) => {
     }
 
     if (!playerBalances[userCode]) {
-      playerBalances[userCode] = { balance: 0, currency: "USD" };
+      playerBalances[userCode] = { balance: 0, currency: DEFAULT_CURRENCY };
+      req.log.info({ userCode }, "Player created");
+      res.json({ success: true, message: `Player ${userCode} created` });
+    } else {
+      res.json({ success: true, message: `Player ${userCode} already exists` });
     }
-
-    const env = getEnvConfig();
-    let registeredOnOroPlay = false;
-
-    if (env.clientId && env.clientSecret) {
-      try {
-        await oroplayRequest("POST", "/user/create", { userCode }, env.clientId, env.clientSecret, env.apiEndpoint);
-        registeredOnOroPlay = true;
-        req.log.info({ userCode }, "Player created on OroPlay");
-      } catch (err) {
-        const errMsg = err instanceof Error ? err.message : "";
-        if (errMsg.includes("(1)") || errMsg.includes("ALREADY_EXISTS")) {
-          registeredOnOroPlay = true;
-          req.log.info({ userCode }, "Player already exists on OroPlay");
-        } else {
-          req.log.warn({ userCode, err }, "OroPlay user/create failed, player registered locally only");
-        }
-      }
-    }
-
-    const msg = registeredOnOroPlay
-      ? `Player ${userCode} registered on OroPlay`
-      : `Player ${userCode} registered locally (seamless wallet mode)`;
-
-    res.json({ success: true, message: msg });
   } catch (err) {
     req.log.error({ err }, "Player create failed");
     res.status(400).json({ success: false, message: err instanceof Error ? err.message : "Failed to create player" });
   }
 });
 
-router.post("/oroplay/player/balance", async (req: Request, res: Response) => {
+router.post("/oroplay/player/balance", (req: Request, res: Response) => {
   try {
     const { userCode } = req.body as { userCode: string };
     if (!userCode) {
@@ -414,32 +395,17 @@ router.post("/oroplay/player/balance", async (req: Request, res: Response) => {
     }
 
     if (!playerBalances[userCode]) {
-      playerBalances[userCode] = { balance: 0, currency: "USD" };
+      playerBalances[userCode] = { balance: 0, currency: DEFAULT_CURRENCY };
     }
 
-    const localBalance = playerBalances[userCode].balance;
-
-    const env = getEnvConfig();
-    if (env.clientId && env.clientSecret) {
-      try {
-        const data = await oroplayRequest("POST", "/user/balance", { userCode }, env.clientId, env.clientSecret, env.apiEndpoint) as { success: boolean; message?: number };
-        const oroBalance = typeof data.message === "number" ? data.message : 0;
-        if (oroBalance > 0 && oroBalance !== localBalance) {
-          req.log.info({ userCode, oroBalance, localBalance }, "OroPlay Transfer balance differs from local, using higher value");
-        }
-      } catch {
-        req.log.debug({ userCode }, "OroPlay Transfer balance not available (seamless wallet mode)");
-      }
-    }
-
-    res.json({ success: true, message: localBalance });
+    res.json({ success: true, message: playerBalances[userCode].balance });
   } catch (err) {
     req.log.error({ err }, "Balance fetch failed");
     res.status(400).json({ success: false, message: err instanceof Error ? err.message : "Failed to fetch balance" });
   }
 });
 
-router.post("/oroplay/player/deposit", async (req: Request, res: Response) => {
+router.post("/oroplay/player/deposit", (req: Request, res: Response) => {
   try {
     const { userCode, amount } = req.body as { userCode: string; amount: number };
     if (!userCode || !amount || amount <= 0) {
@@ -448,35 +414,11 @@ router.post("/oroplay/player/deposit", async (req: Request, res: Response) => {
     }
 
     if (!playerBalances[userCode]) {
-      playerBalances[userCode] = { balance: 0, currency: "USD" };
+      playerBalances[userCode] = { balance: 0, currency: DEFAULT_CURRENCY };
     }
 
-    const env = getEnvConfig();
-    let usedTransferApi = false;
-
-    if (env.clientId && env.clientSecret) {
-      try {
-        const orderNo = `DEP_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
-        const data = await oroplayRequest("POST", "/user/deposit", {
-          userCode,
-          balance: amount,
-          orderNo,
-        }, env.clientId, env.clientSecret, env.apiEndpoint) as { success: boolean; message?: number; errorCode?: number };
-
-        const newBalance = typeof data.message === "number" ? data.message : amount;
-        playerBalances[userCode].balance = newBalance;
-        usedTransferApi = true;
-        req.log.info({ userCode, amount, newBalance, orderNo }, "Deposit processed via OroPlay Transfer API");
-      } catch (transferErr) {
-        req.log.warn({ transferErr }, "OroPlay Transfer API deposit failed, using local wallet (seamless mode)");
-      }
-    }
-
-    if (!usedTransferApi) {
-      playerBalances[userCode].balance += amount;
-      req.log.info({ userCode, amount, newBalance: playerBalances[userCode].balance }, "Deposit processed locally (seamless wallet mode)");
-    }
-
+    playerBalances[userCode].balance += amount;
+    req.log.info({ userCode, amount, newBalance: playerBalances[userCode].balance }, "Deposit processed");
     res.json({ success: true, message: playerBalances[userCode].balance });
   } catch (err) {
     req.log.error({ err }, "Deposit failed");
@@ -484,7 +426,7 @@ router.post("/oroplay/player/deposit", async (req: Request, res: Response) => {
   }
 });
 
-router.post("/oroplay/player/withdraw", async (req: Request, res: Response) => {
+router.post("/oroplay/player/withdraw", (req: Request, res: Response) => {
   try {
     const { userCode, amount } = req.body as { userCode: string; amount: number };
     if (!userCode) {
@@ -497,42 +439,20 @@ router.post("/oroplay/player/withdraw", async (req: Request, res: Response) => {
     }
 
     if (!playerBalances[userCode]) {
-      playerBalances[userCode] = { balance: 0, currency: "USD" };
+      playerBalances[userCode] = { balance: 0, currency: DEFAULT_CURRENCY };
     }
 
-    const env = getEnvConfig();
-    let usedTransferApi = false;
-
-    if (env.clientId && env.clientSecret) {
-      try {
-        if (amount === -1 || amount === undefined) {
-          const data = await oroplayRequest("POST", "/user/withdraw-all", { userCode }, env.clientId, env.clientSecret, env.apiEndpoint) as { success: boolean; message?: number };
-          const withdrawn = typeof data.message === "number" ? data.message : 0;
-          playerBalances[userCode].balance = 0;
-          usedTransferApi = true;
-          req.log.info({ userCode, withdrawn }, "Withdraw-all processed via OroPlay Transfer API");
-        } else {
-          const orderNo = `WDR_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
-          const data = await oroplayRequest("POST", "/user/withdraw", { userCode, balance: amount, orderNo }, env.clientId, env.clientSecret, env.apiEndpoint) as { success: boolean; message?: number };
-          const newBalance = typeof data.message === "number" ? data.message : 0;
-          playerBalances[userCode].balance = newBalance;
-          usedTransferApi = true;
-          req.log.info({ userCode, amount, newBalance }, "Withdraw processed via OroPlay Transfer API");
-        }
-      } catch (transferErr) {
-        req.log.warn({ transferErr }, "OroPlay Transfer API withdraw failed, using local wallet (seamless mode)");
+    if (amount === -1) {
+      playerBalances[userCode].balance = 0;
+    } else {
+      if (playerBalances[userCode].balance < amount) {
+        res.status(400).json({ success: false, message: "Insufficient balance" });
+        return;
       }
+      playerBalances[userCode].balance -= amount;
     }
 
-    if (!usedTransferApi) {
-      if (amount === -1 || amount === undefined) {
-        playerBalances[userCode].balance = 0;
-      } else {
-        playerBalances[userCode].balance = Math.max(0, playerBalances[userCode].balance - amount);
-      }
-      req.log.info({ userCode, amount, newBalance: playerBalances[userCode].balance }, "Withdraw processed locally (seamless wallet mode)");
-    }
-
+    req.log.info({ userCode, amount, newBalance: playerBalances[userCode].balance }, "Withdraw processed");
     res.json({ success: true, message: playerBalances[userCode].balance });
   } catch (err) {
     req.log.error({ err }, "Withdraw failed");
@@ -593,13 +513,12 @@ router.post("/balance", (req: Request, res: Response) => {
     }
 
     if (!playerBalances[userCode]) {
-      playerBalances[userCode] = { balance: 0, currency: "USD" };
+      playerBalances[userCode] = { balance: 0, currency: DEFAULT_CURRENCY };
     }
 
-    const player = playerBalances[userCode];
     res.json({
       success: true,
-      message: player.balance,
+      message: playerBalances[userCode].balance,
       errorCode: 0,
     });
   } catch (err) {
@@ -657,10 +576,19 @@ router.post("/transaction", (req: Request, res: Response) => {
     }
 
     if (!playerBalances[userCode]) {
-      playerBalances[userCode] = { balance: 0, currency: "USD" };
+      playerBalances[userCode] = { balance: 0, currency: DEFAULT_CURRENCY };
     }
 
     const player = playerBalances[userCode];
+
+    if (isCanceled) {
+      if (amount < 0) {
+        player.balance += Math.abs(amount);
+      }
+      processedTransactions.add(transactionCode);
+      res.json({ success: true, message: player.balance, errorCode: 0 });
+      return;
+    }
 
     if (amount < 0) {
       const betAmount = Math.abs(amount);
@@ -675,10 +603,6 @@ router.post("/transaction", (req: Request, res: Response) => {
       player.balance -= betAmount;
     } else if (amount > 0) {
       player.balance += amount;
-    }
-
-    if (isCanceled && amount < 0) {
-      player.balance += Math.abs(amount);
     }
 
     processedTransactions.add(transactionCode);
@@ -730,7 +654,7 @@ router.post("/batch-transactions", (req: Request, res: Response) => {
     }
 
     if (!playerBalances[userCode]) {
-      playerBalances[userCode] = { balance: 0, currency: "USD" };
+      playerBalances[userCode] = { balance: 0, currency: DEFAULT_CURRENCY };
     }
 
     const player = playerBalances[userCode];
@@ -743,6 +667,14 @@ router.post("/batch-transactions", (req: Request, res: Response) => {
 
       const amount = txn.amount || 0;
 
+      if (txn.isCanceled) {
+        if (amount < 0) {
+          player.balance += Math.abs(amount);
+        }
+        if (txnCode) processedTransactions.add(txnCode);
+        continue;
+      }
+
       if (amount < 0) {
         const betAmount = Math.abs(amount);
         if (player.balance >= betAmount) {
@@ -750,10 +682,6 @@ router.post("/batch-transactions", (req: Request, res: Response) => {
         }
       } else if (amount > 0) {
         player.balance += amount;
-      }
-
-      if (txn.isCanceled && amount < 0) {
-        player.balance += Math.abs(amount);
       }
 
       if (txnCode) {

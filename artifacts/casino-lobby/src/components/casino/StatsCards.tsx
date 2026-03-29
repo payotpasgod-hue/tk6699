@@ -29,7 +29,7 @@ export function StatsCards() {
     },
     {
       title: "Balance",
-      value: `$${balance.toFixed(2)}`,
+      value: `৳${balance.toFixed(2)}`,
       icon: Wallet,
       color: "text-accent",
       bg: "bg-accent/10"

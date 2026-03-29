@@ -14,7 +14,7 @@ export function Navbar() {
       const res = await checkBalance({ data: { userCode: playerCode } });
       if (res.success && res.message !== undefined) {
         setPlayerSession({ balance: res.message });
-        toast({ title: "Balance Updated", description: `Current balance: $${res.message.toFixed(2)}` });
+        toast({ title: "Balance Updated", description: `Current balance: ৳${res.message.toFixed(2)}` });
       }
     } catch {
       toast({ variant: "destructive", title: "Balance Check Failed", description: "Could not retrieve balance" });
@@ -44,7 +44,7 @@ export function Navbar() {
               <span className="text-xs font-medium text-white">{playerCode || "No Player"}</span>
               <div className="w-px h-3.5 bg-white/20" />
               <Wallet className="w-3.5 h-3.5 text-accent" />
-              <span className="text-xs font-bold text-accent">${balance.toFixed(2)}</span>
+              <span className="text-xs font-bold text-accent">৳{balance.toFixed(2)}</span>
             </div>
 
             <Button 
