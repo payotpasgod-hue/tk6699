@@ -231,7 +231,7 @@ router.post("/auth/google", async (req: Request, res: Response) => {
       return;
     }
 
-    let payload: { sub?: string; email?: string; name?: string; picture?: string };
+    let payload: { sub?: string; email?: string; name?: string; picture?: string; user_id?: string };
     try {
       const parts = credential.split(".");
       if (parts.length !== 3) throw new Error("Invalid token format");
@@ -242,24 +242,45 @@ router.post("/auth/google", async (req: Request, res: Response) => {
       return;
     }
 
-    const googleId = payload.sub;
-    const name = payload.name || "Player";
-    const email = payload.email || "";
+    let googleId = payload.sub;
+    let name = payload.name || "Player";
 
     if (!googleId) {
       res.status(400).json({ success: false, message: "Invalid Google token payload" });
       return;
     }
 
-    const tokenInfoResp = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${credential}`);
-    if (!tokenInfoResp.ok) {
-      res.status(401).json({ success: false, message: "Google token verification failed" });
-      return;
-    }
-    const tokenInfo = await tokenInfoResp.json() as { sub?: string };
-    if (tokenInfo.sub !== googleId) {
-      res.status(401).json({ success: false, message: "Token mismatch" });
-      return;
+    const isFirebaseToken = payload.user_id && credential.includes("securetoken.google.com");
+
+    if (isFirebaseToken) {
+      const verifyResp = await fetch(`https://www.googleapis.com/identitytoolkit/v3/relyingparty/getAccountInfo?key=AIzaSyBA4SPo_2TPU2R5R6LsbmL0xnVLQOGk_LA`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idToken: credential }),
+      });
+      if (!verifyResp.ok) {
+        res.status(401).json({ success: false, message: "Firebase token verification failed" });
+        return;
+      }
+      const verifyData = await verifyResp.json() as { users?: Array<{ localId?: string; displayName?: string; email?: string }> };
+      const fbUser = verifyData.users?.[0];
+      if (!fbUser?.localId) {
+        res.status(401).json({ success: false, message: "Firebase token invalid" });
+        return;
+      }
+      googleId = fbUser.localId;
+      name = fbUser.displayName || name;
+    } else {
+      const tokenInfoResp = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${credential}`);
+      if (!tokenInfoResp.ok) {
+        res.status(401).json({ success: false, message: "Google token verification failed" });
+        return;
+      }
+      const tokenInfo = await tokenInfoResp.json() as { sub?: string };
+      if (tokenInfo.sub !== googleId) {
+        res.status(401).json({ success: false, message: "Token mismatch" });
+        return;
+      }
     }
 
     const existing = await db

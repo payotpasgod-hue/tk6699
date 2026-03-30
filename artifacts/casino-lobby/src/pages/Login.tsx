@@ -55,10 +55,9 @@ export default function Login() {
   };
 
   useEffect(() => {
-    const token = handleGoogleRedirectResult();
-    if (token) {
-      processGoogleCredential(token);
-    }
+    handleGoogleRedirectResult().then((token) => {
+      if (token) processGoogleCredential(token);
+    });
   }, []);
 
   const handleGoogleClick = async () => {
