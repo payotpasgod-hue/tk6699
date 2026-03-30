@@ -1,24 +1,13 @@
 import { Router, type Request, type Response } from "express";
 import { db, pool } from "@workspace/db";
-import { usersTable, bonusClaimsTable } from "@workspace/db/schema";
-import { eq, and } from "drizzle-orm";
+import { usersTable, bonusClaimsTable, depositsTable } from "@workspace/db/schema";
+import { eq, and, sql } from "drizzle-orm";
 import { authMiddleware } from "./auth";
+import { getSetting } from "./settings";
 
 const router = Router();
 
-const GIFT_BOX_AMOUNTS = [5, 10, 15, 20, 25, 50, 75, 100, 200, 500];
-const GIFT_BOX_WEIGHTS = [30, 25, 15, 10, 8, 5, 3, 2, 1.5, 0.5];
 const SPIN_PRIZES = [10, 25, 50, 100, 200, 500, 20, 75];
-
-function weightedRandom(amounts: number[], weights: number[]): number {
-  const totalWeight = weights.reduce((a, b) => a + b, 0);
-  let random = Math.random() * totalWeight;
-  for (let i = 0; i < weights.length; i++) {
-    random -= weights[i];
-    if (random <= 0) return amounts[i];
-  }
-  return amounts[0];
-}
 
 router.post("/bonus/claim", authMiddleware, async (req: Request, res: Response) => {
   try {
@@ -30,7 +19,7 @@ router.post("/bonus/claim", authMiddleware, async (req: Request, res: Response) 
       return;
     }
 
-    const validTypes = ["gift_box", "spin", "daily", "hourly"];
+    const validTypes = ["spin", "daily", "hourly", "red_pocket"];
     if (!validTypes.includes(bonusType)) {
       res.status(400).json({ success: false, message: "Invalid bonus type" });
       return;
@@ -53,18 +42,48 @@ router.post("/bonus/claim", authMiddleware, async (req: Request, res: Response) 
 
       let amount = 0;
 
-      if (bonusType === "gift_box") {
-        const boxId = parseInt(bonusKey.replace("box_", ""));
-        if (isNaN(boxId) || boxId < 0 || boxId > 8) {
-          await client.query("ROLLBACK");
-          res.status(400).json({ success: false, message: "Invalid gift box" });
-          return;
+      if (bonusType === "spin") {
+        const cooldownHours = parseInt(await getSetting("spin_cooldown_hours")) || 24;
+        const lastSpin = await client.query(
+          "SELECT created_at FROM bonus_claims WHERE user_id = $1 AND bonus_type = 'spin' ORDER BY created_at DESC LIMIT 1",
+          [userId]
+        );
+        if (lastSpin.rows.length > 0) {
+          const lastTime = new Date(lastSpin.rows[0].created_at).getTime();
+          if (Date.now() - lastTime < cooldownHours * 60 * 60 * 1000) {
+            await client.query("ROLLBACK");
+            res.status(400).json({ success: false, message: `Lucky spin resets every ${cooldownHours} hours. Try again later.` });
+            return;
+          }
         }
-        amount = weightedRandom(GIFT_BOX_AMOUNTS, GIFT_BOX_WEIGHTS);
-      } else if (bonusType === "spin") {
         const idx = Math.floor(Math.random() * SPIN_PRIZES.length);
         amount = SPIN_PRIZES[idx];
       } else if (bonusType === "daily") {
+        const requiresDeposit = (await getSetting("daily_reward_requires_deposit")) === "true";
+
+        if (requiresDeposit) {
+          const dayMatch = bonusKey.match(/day_(\d+)/);
+          if (!dayMatch) {
+            await client.query("ROLLBACK");
+            res.status(400).json({ success: false, message: "Invalid daily reward key" });
+            return;
+          }
+
+          const todayStart = new Date();
+          todayStart.setHours(0, 0, 0, 0);
+
+          const todayDeposit = await client.query(
+            "SELECT id FROM deposits WHERE user_id = $1 AND status = 'approved' AND created_at >= $2 LIMIT 1",
+            [userId, todayStart.toISOString()]
+          );
+
+          if (todayDeposit.rows.length === 0) {
+            await client.query("ROLLBACK");
+            res.status(400).json({ success: false, message: "You must make a deposit today to claim daily reward" });
+            return;
+          }
+        }
+
         const dayAmounts: Record<string, number> = {
           day_1: 10, day_2: 20, day_3: 30, day_4: 50, day_5: 75, day_6: 100, day_7: 500,
         };
@@ -88,6 +107,24 @@ router.post("/bonus/claim", authMiddleware, async (req: Request, res: Response) 
           }
         }
         amount = Math.floor(Math.random() * 96) + 5;
+      } else if (bonusType === "red_pocket") {
+        const minAmount = parseInt(await getSetting("red_pocket_min")) || 5;
+        const maxAmount = parseInt(await getSetting("red_pocket_max")) || 50;
+        const intervalMin = parseInt(await getSetting("red_pocket_interval_minutes")) || 30;
+
+        const lastRedPocket = await client.query(
+          "SELECT created_at FROM bonus_claims WHERE user_id = $1 AND bonus_type = 'red_pocket' ORDER BY created_at DESC LIMIT 1",
+          [userId]
+        );
+        if (lastRedPocket.rows.length > 0) {
+          const lastTime = new Date(lastRedPocket.rows[0].created_at).getTime();
+          if (Date.now() - lastTime < intervalMin * 60 * 1000) {
+            await client.query("ROLLBACK");
+            res.status(400).json({ success: false, message: `Red pocket available every ${intervalMin} minutes` });
+            return;
+          }
+        }
+        amount = Math.floor(Math.random() * (maxAmount - minAmount + 1)) + minAmount;
       }
 
       const balResult = await client.query(

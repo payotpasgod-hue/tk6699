@@ -1,4 +1,4 @@
-import { LayoutGrid, Gamepad2, Tv, Fish, Gift, Wallet } from "lucide-react";
+import { LayoutGrid, Gamepad2, Tv, Fish, Gift, ArrowDownToLine, ArrowUpFromLine } from "lucide-react";
 import { useLobbyStore } from "@/store/use-lobby-store";
 import { useAuthStore } from "@/store/use-auth-store";
 import { useLocation } from "wouter";
@@ -12,12 +12,14 @@ export function BottomNav() {
   const t = useT();
 
   const isBonus = location === "/bonus";
+  const isDeposit = location === "/deposit";
+  const isWithdraw = location === "/withdraw";
+  const isSpecialPage = isBonus || isDeposit || isWithdraw;
 
   const GAME_TABS = [
     { id: "ALL", label: t("bottom.all"), icon: LayoutGrid },
     { id: "2", label: t("bottom.slots"), icon: Gamepad2 },
     { id: "1", label: t("bottom.live"), icon: Tv },
-    { id: "4", label: t("bottom.fish"), icon: Fish },
   ];
 
   return (
@@ -25,15 +27,15 @@ export function BottomNav() {
       <div className="flex items-center justify-around py-1.5 px-1 safe-bottom">
         {GAME_TABS.map((item) => {
           const Icon = item.icon;
-          const isActive = !isBonus && gameTypeFilter === item.id;
+          const isActive = !isSpecialPage && gameTypeFilter === item.id;
           return (
             <button
               key={item.id}
               onClick={() => {
-                if (isBonus) setLocation("/");
+                if (isSpecialPage) setLocation("/");
                 setFilters({ type: item.id });
               }}
-              className="flex flex-col items-center gap-0.5 py-1 px-2"
+              className="flex flex-col items-center gap-0.5 py-1 px-1.5"
             >
               <Icon
                 className={clsx(
@@ -54,8 +56,48 @@ export function BottomNav() {
         })}
 
         <button
+          onClick={() => setLocation("/deposit")}
+          className="flex flex-col items-center gap-0.5 py-1 px-1.5"
+        >
+          <ArrowDownToLine
+            className={clsx(
+              "w-5 h-5 transition-colors",
+              isDeposit ? "text-emerald-400" : "text-white/30"
+            )}
+          />
+          <span
+            className={clsx(
+              "text-[10px] font-semibold transition-colors",
+              isDeposit ? "text-emerald-400" : "text-white/30"
+            )}
+          >
+            {t("bottom.deposit")}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setLocation("/withdraw")}
+          className="flex flex-col items-center gap-0.5 py-1 px-1.5"
+        >
+          <ArrowUpFromLine
+            className={clsx(
+              "w-5 h-5 transition-colors",
+              isWithdraw ? "text-orange-400" : "text-white/30"
+            )}
+          />
+          <span
+            className={clsx(
+              "text-[10px] font-semibold transition-colors",
+              isWithdraw ? "text-orange-400" : "text-white/30"
+            )}
+          >
+            {t("bottom.withdraw")}
+          </span>
+        </button>
+
+        <button
           onClick={() => setLocation("/bonus")}
-          className="flex flex-col items-center gap-0.5 py-1 px-2 relative"
+          className="flex flex-col items-center gap-0.5 py-1 px-1.5 relative"
         >
           <div className="relative">
             <Gift
@@ -73,13 +115,6 @@ export function BottomNav() {
             )}
           >
             {t("bottom.bonus")}
-          </span>
-        </button>
-
-        <button className="flex flex-col items-center gap-0.5 py-1 px-2">
-          <Wallet className="w-5 h-5 text-amber-400/60" />
-          <span className="text-[10px] font-bold text-amber-400">
-            ৳{(user?.balance || 0).toFixed(0)}
           </span>
         </button>
       </div>

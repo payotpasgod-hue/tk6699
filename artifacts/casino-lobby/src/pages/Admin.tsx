@@ -4,6 +4,7 @@ import {
   Users, ArrowUpCircle, ArrowDownCircle, History, Shield, LogOut, Wallet,
   RefreshCw, BarChart3, Ban, CheckCircle, Activity, AlertTriangle, Gift,
   Server, Database, Clock, Zap, Globe, HardDrive, Search, X, FileText,
+  Settings, CreditCard, Banknote, Eye, CheckCircle2, XCircle, Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -77,6 +78,33 @@ interface BonusClaim {
   createdAt: string;
 }
 
+interface AdminDeposit {
+  id: number;
+  userId: number;
+  amount: number;
+  method: string;
+  transactionId: string;
+  screenshotUrl: string | null;
+  status: string;
+  adminNote: string | null;
+  createdAt: string;
+  userName: string;
+  userPhone: string;
+}
+
+interface AdminWithdrawal {
+  id: number;
+  userId: number;
+  amount: number;
+  method: string;
+  accountNumber: string;
+  status: string;
+  adminNote: string | null;
+  createdAt: string;
+  userName: string;
+  userPhone: string;
+}
+
 interface SystemHealth {
   relay: { status: string; latency: number; endpoint: string };
   database: { status: string; latency: number };
@@ -93,7 +121,7 @@ interface Stats {
   totalBalance: number;
 }
 
-type TabId = "overview" | "users" | "transactions" | "requests" | "errors" | "bonuses";
+type TabId = "overview" | "users" | "transactions" | "deposits" | "withdrawals" | "settings" | "requests" | "errors" | "bonuses";
 
 export default function Admin() {
   const [, setLocation] = useLocation();
@@ -109,6 +137,14 @@ export default function Admin() {
   const [requestLogs, setRequestLogs] = useState<RequestLogEntry[]>([]);
   const [errorLogs, setErrorLogs] = useState<ErrorLogEntry[]>([]);
   const [bonusClaims, setBonusClaims] = useState<BonusClaim[]>([]);
+  const [adminDeposits, setAdminDeposits] = useState<AdminDeposit[]>([]);
+  const [adminWithdrawals, setAdminWithdrawals] = useState<AdminWithdrawal[]>([]);
+  const [siteSettings, setSiteSettings] = useState<Record<string, string>>({});
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [actionLoading, setActionLoading] = useState<number | null>(null);
+  const [noteDialog, setNoteDialog] = useState<{ type: "deposit" | "withdrawal"; id: number; action: "approve" | "reject" } | null>(null);
+  const [adminNote, setAdminNote] = useState("");
+  const [screenshotDialog, setScreenshotDialog] = useState<string | null>(null);
   const [health, setHealth] = useState<SystemHealth | null>(null);
   const [logFilter, setLogFilter] = useState("");
 
@@ -166,6 +202,21 @@ export default function Admin() {
     if (data?.success) setBonusClaims(data.claims);
   }, []);
 
+  const loadAdminDeposits = useCallback(async () => {
+    const data = await safeLoad(() => apiRequest("/api/admin/deposits"));
+    if (data?.success) setAdminDeposits(data.deposits);
+  }, []);
+
+  const loadAdminWithdrawals = useCallback(async () => {
+    const data = await safeLoad(() => apiRequest("/api/admin/withdrawals"));
+    if (data?.success) setAdminWithdrawals(data.withdrawals);
+  }, []);
+
+  const loadSiteSettings = useCallback(async () => {
+    const data = await safeLoad(() => apiRequest("/api/admin/settings"));
+    if (data?.success) setSiteSettings(data.settings);
+  }, []);
+
   const loadHealth = useCallback(async () => {
     const data = await safeLoad(() => apiRequest("/api/admin/system-health"));
     if (data?.success) setHealth(data.health);
@@ -182,6 +233,9 @@ export default function Admin() {
   useEffect(() => {
     if (tab === "transactions") loadTransactions();
     if (tab === "bonuses") loadBonusClaims();
+    if (tab === "deposits") loadAdminDeposits();
+    if (tab === "withdrawals") loadAdminWithdrawals();
+    if (tab === "settings") loadSiteSettings();
     if (tab === "requests") loadRequestLogs();
     if (tab === "errors") loadErrorLogs();
   }, [tab]);
@@ -233,6 +287,76 @@ export default function Admin() {
     }
   };
 
+  const handleDepositAction = async (id: number, action: "approve" | "reject", note?: string) => {
+    setActionLoading(id);
+    try {
+      const data = await apiRequest(`/api/admin/deposit/${id}/${action}`, {
+        method: "POST",
+        body: JSON.stringify({ note }),
+      });
+      if (data.success) {
+        toast({ title: action === "approve" ? "Deposit Approved" : "Deposit Rejected", description: data.message });
+        loadAdminDeposits();
+        loadUsers();
+        loadStats();
+      }
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Failed", description: err.message });
+    } finally {
+      setActionLoading(null);
+      setNoteDialog(null);
+      setAdminNote("");
+    }
+  };
+
+  const handleWithdrawalAction = async (id: number, action: "approve" | "reject", note?: string) => {
+    setActionLoading(id);
+    try {
+      const data = await apiRequest(`/api/admin/withdrawal/${id}/${action}`, {
+        method: "POST",
+        body: JSON.stringify({ note }),
+      });
+      if (data.success) {
+        toast({ title: action === "approve" ? "Withdrawal Approved" : "Withdrawal Rejected", description: data.message });
+        loadAdminWithdrawals();
+        loadUsers();
+        loadStats();
+      }
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Failed", description: err.message });
+    } finally {
+      setActionLoading(null);
+      setNoteDialog(null);
+      setAdminNote("");
+    }
+  };
+
+  const handleSaveSettings = async () => {
+    setSavingSettings(true);
+    try {
+      const data = await apiRequest("/api/admin/settings", {
+        method: "POST",
+        body: JSON.stringify({ settings: siteSettings }),
+      });
+      if (data.success) {
+        toast({ title: "Settings Saved" });
+      }
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Failed", description: err.message });
+    } finally {
+      setSavingSettings(false);
+    }
+  };
+
+  const handleNoteAction = () => {
+    if (!noteDialog) return;
+    if (noteDialog.type === "deposit") {
+      handleDepositAction(noteDialog.id, noteDialog.action, adminNote || undefined);
+    } else {
+      handleWithdrawalAction(noteDialog.id, noteDialog.action, adminNote || undefined);
+    }
+  };
+
   const handleRefreshCache = async () => {
     try {
       toast({ title: "Refreshing...", description: "Fetching all games from OroPlay" });
@@ -281,11 +405,17 @@ export default function Admin() {
     return "bg-red-500/20 text-red-400";
   };
 
-  const TABS: { id: TabId; label: string; icon: typeof Activity; badge?: number }[] = [
+  const pendingDeposits = adminDeposits.filter(d => d.status === "pending").length;
+  const pendingWithdrawals = adminWithdrawals.filter(w => w.status === "pending").length;
+
+  const TABS: { id: TabId; label: string; icon: typeof Activity; badge?: number; urgent?: boolean }[] = [
     { id: "overview", label: "Overview", icon: Activity },
+    { id: "deposits", label: "Deposits", icon: CreditCard, badge: pendingDeposits, urgent: pendingDeposits > 0 },
+    { id: "withdrawals", label: "Withdrawals", icon: Banknote, badge: pendingWithdrawals, urgent: pendingWithdrawals > 0 },
     { id: "users", label: "Users", icon: Users, badge: users.length },
-    { id: "transactions", label: "Transactions", icon: History },
-    { id: "requests", label: "API Logs", icon: FileText, badge: requestLogs.length },
+    { id: "transactions", label: "Txns", icon: History },
+    { id: "settings", label: "Settings", icon: Settings },
+    { id: "requests", label: "Logs", icon: FileText, badge: requestLogs.length },
     { id: "errors", label: "Errors", icon: AlertTriangle, badge: errorLogs.length },
     { id: "bonuses", label: "Bonuses", icon: Gift, badge: bonusClaims.length },
   ];
@@ -339,7 +469,7 @@ export default function Admin() {
                 {t.label}
                 {t.badge !== undefined && t.badge > 0 && (
                   <span className={`text-[10px] px-1.5 rounded-full ${
-                    t.id === "errors" ? "bg-red-500/20 text-red-400" : "bg-white/10 text-white/30"
+                    t.urgent ? "bg-amber-500/20 text-amber-400 animate-pulse" : t.id === "errors" ? "bg-red-500/20 text-red-400" : "bg-white/10 text-white/30"
                   }`}>{t.badge}</span>
                 )}
               </button>
@@ -609,6 +739,262 @@ export default function Admin() {
           </div>
         )}
 
+        {tab === "deposits" && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-sm font-semibold text-white">Deposit Requests</h2>
+              <Button variant="outline" size="sm" className="h-7 text-xs bg-white/5 border-white/10" onClick={loadAdminDeposits}>
+                <RefreshCw className="w-3 h-3 mr-1" /> Refresh
+              </Button>
+            </div>
+            <div className="bg-[#111827]/80 border border-white/5 rounded-xl overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-white/10 text-white/30 text-xs uppercase">
+                      <th className="text-left p-3">Time</th>
+                      <th className="text-left p-3">User</th>
+                      <th className="text-center p-3">Method</th>
+                      <th className="text-right p-3">Amount</th>
+                      <th className="text-left p-3">TXN ID</th>
+                      <th className="text-center p-3">Status</th>
+                      <th className="text-right p-3">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {adminDeposits.map((d) => (
+                      <tr key={d.id} className={`border-b border-white/5 hover:bg-white/[0.02] ${d.status === "pending" ? "bg-amber-500/[0.03]" : ""}`}>
+                        <td className="p-3 text-[10px] text-white/20 whitespace-nowrap font-mono">{fmtDate(d.createdAt)}</td>
+                        <td className="p-3">
+                          <div className="text-xs text-white">{d.userName}</div>
+                          <div className="text-[10px] text-white/20">{d.userPhone}</div>
+                        </td>
+                        <td className="p-3 text-center">
+                          <span className={`text-[10px] px-2 py-0.5 rounded font-semibold ${
+                            d.method === "bkash" ? "bg-pink-500/20 text-pink-400" : "bg-orange-500/20 text-orange-400"
+                          }`}>{d.method}</span>
+                        </td>
+                        <td className="p-3 text-right font-bold text-emerald-400 text-xs">৳{Number(d.amount).toFixed(0)}</td>
+                        <td className="p-3 text-xs text-white/40 font-mono">{d.transactionId}</td>
+                        <td className="p-3 text-center">
+                          <span className={`text-[10px] px-2 py-0.5 rounded font-semibold ${
+                            d.status === "approved" ? "bg-emerald-500/20 text-emerald-400"
+                              : d.status === "rejected" ? "bg-red-500/20 text-red-400"
+                              : "bg-amber-500/20 text-amber-400"
+                          }`}>{d.status}</span>
+                        </td>
+                        <td className="p-3 text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            {d.screenshotUrl && (
+                              <Button variant="outline" size="sm" className="h-6 px-2 bg-white/5 border-white/10 text-[10px]" onClick={() => setScreenshotDialog(d.screenshotUrl)}>
+                                <Eye className="w-3 h-3" />
+                              </Button>
+                            )}
+                            {d.status === "pending" && (
+                              <>
+                                <Button
+                                  variant="outline" size="sm"
+                                  className="h-6 px-2 bg-emerald-500/10 border-emerald-500/20 text-emerald-400 text-[10px]"
+                                  disabled={actionLoading === d.id}
+                                  onClick={() => { setNoteDialog({ type: "deposit", id: d.id, action: "approve" }); setAdminNote(""); }}
+                                >
+                                  {actionLoading === d.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3 mr-0.5" />} Approve
+                                </Button>
+                                <Button
+                                  variant="outline" size="sm"
+                                  className="h-6 px-2 bg-red-500/10 border-red-500/20 text-red-400 text-[10px]"
+                                  disabled={actionLoading === d.id}
+                                  onClick={() => { setNoteDialog({ type: "deposit", id: d.id, action: "reject" }); setAdminNote(""); }}
+                                >
+                                  <XCircle className="w-3 h-3 mr-0.5" /> Reject
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                          {d.adminNote && <p className="text-[10px] text-white/20 mt-1 text-right">{d.adminNote}</p>}
+                        </td>
+                      </tr>
+                    ))}
+                    {adminDeposits.length === 0 && (
+                      <tr><td colSpan={7} className="p-8 text-center text-white/20">No deposit requests</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {tab === "withdrawals" && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-sm font-semibold text-white">Withdrawal Requests</h2>
+              <Button variant="outline" size="sm" className="h-7 text-xs bg-white/5 border-white/10" onClick={loadAdminWithdrawals}>
+                <RefreshCw className="w-3 h-3 mr-1" /> Refresh
+              </Button>
+            </div>
+            <div className="bg-[#111827]/80 border border-white/5 rounded-xl overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-white/10 text-white/30 text-xs uppercase">
+                      <th className="text-left p-3">Time</th>
+                      <th className="text-left p-3">User</th>
+                      <th className="text-center p-3">Method</th>
+                      <th className="text-right p-3">Amount</th>
+                      <th className="text-left p-3">Account</th>
+                      <th className="text-center p-3">Status</th>
+                      <th className="text-right p-3">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {adminWithdrawals.map((w) => (
+                      <tr key={w.id} className={`border-b border-white/5 hover:bg-white/[0.02] ${w.status === "pending" ? "bg-amber-500/[0.03]" : ""}`}>
+                        <td className="p-3 text-[10px] text-white/20 whitespace-nowrap font-mono">{fmtDate(w.createdAt)}</td>
+                        <td className="p-3">
+                          <div className="text-xs text-white">{w.userName}</div>
+                          <div className="text-[10px] text-white/20">{w.userPhone}</div>
+                        </td>
+                        <td className="p-3 text-center">
+                          <span className={`text-[10px] px-2 py-0.5 rounded font-semibold ${
+                            w.method === "bkash" ? "bg-pink-500/20 text-pink-400" : "bg-orange-500/20 text-orange-400"
+                          }`}>{w.method}</span>
+                        </td>
+                        <td className="p-3 text-right font-bold text-red-400 text-xs">৳{Number(w.amount).toFixed(0)}</td>
+                        <td className="p-3 text-xs text-white/40 font-mono">{w.accountNumber}</td>
+                        <td className="p-3 text-center">
+                          <span className={`text-[10px] px-2 py-0.5 rounded font-semibold ${
+                            w.status === "approved" ? "bg-emerald-500/20 text-emerald-400"
+                              : w.status === "rejected" ? "bg-red-500/20 text-red-400"
+                              : "bg-amber-500/20 text-amber-400"
+                          }`}>{w.status}</span>
+                        </td>
+                        <td className="p-3 text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            {w.status === "pending" && (
+                              <>
+                                <Button
+                                  variant="outline" size="sm"
+                                  className="h-6 px-2 bg-emerald-500/10 border-emerald-500/20 text-emerald-400 text-[10px]"
+                                  disabled={actionLoading === w.id}
+                                  onClick={() => { setNoteDialog({ type: "withdrawal", id: w.id, action: "approve" }); setAdminNote(""); }}
+                                >
+                                  {actionLoading === w.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3 mr-0.5" />} Approve
+                                </Button>
+                                <Button
+                                  variant="outline" size="sm"
+                                  className="h-6 px-2 bg-red-500/10 border-red-500/20 text-red-400 text-[10px]"
+                                  disabled={actionLoading === w.id}
+                                  onClick={() => { setNoteDialog({ type: "withdrawal", id: w.id, action: "reject" }); setAdminNote(""); }}
+                                >
+                                  <XCircle className="w-3 h-3 mr-0.5" /> Reject
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                          {w.adminNote && <p className="text-[10px] text-white/20 mt-1 text-right">{w.adminNote}</p>}
+                        </td>
+                      </tr>
+                    ))}
+                    {adminWithdrawals.length === 0 && (
+                      <tr><td colSpan={7} className="p-8 text-center text-white/20">No withdrawal requests</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {tab === "settings" && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-sm font-semibold text-white">Site Settings</h2>
+              <Button
+                variant="outline" size="sm"
+                className="h-7 text-xs bg-amber-500/10 border-amber-500/20 text-amber-400"
+                onClick={handleSaveSettings}
+                disabled={savingSettings}
+              >
+                {savingSettings ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : null}
+                {savingSettings ? "Saving..." : "Save All Settings"}
+              </Button>
+            </div>
+
+            {[
+              {
+                title: "Payment Numbers",
+                fields: [
+                  { key: "bkash_number", label: "bKash Number", placeholder: "01XXXXXXXXX" },
+                  { key: "nagad_number", label: "Nagad Number", placeholder: "01XXXXXXXXX" },
+                ],
+              },
+              {
+                title: "Deposit / Withdrawal Limits",
+                fields: [
+                  { key: "min_deposit", label: "Min Deposit (BDT)" },
+                  { key: "max_deposit", label: "Max Deposit (BDT)" },
+                  { key: "min_withdraw", label: "Min Withdrawal (BDT)" },
+                  { key: "max_withdraw", label: "Max Withdrawal (BDT)" },
+                ],
+              },
+              {
+                title: "Bonuses & Rewards",
+                fields: [
+                  { key: "registration_bonus", label: "Registration Bonus (BDT)" },
+                  { key: "spin_cooldown_hours", label: "Spin Cooldown (hours)" },
+                  { key: "daily_reward_requires_deposit", label: "Daily Reward Requires Deposit (true/false)" },
+                  { key: "red_pocket_min", label: "Red Pocket Min (BDT)" },
+                  { key: "red_pocket_max", label: "Red Pocket Max (BDT)" },
+                  { key: "red_pocket_interval_minutes", label: "Red Pocket Interval (min)" },
+                ],
+              },
+              {
+                title: "Deposit Bonus Tier 1",
+                fields: [
+                  { key: "deposit_bonus_1_min", label: "Min Deposit" },
+                  { key: "deposit_bonus_1_pct", label: "Bonus %" },
+                  { key: "deposit_bonus_1_max", label: "Max Bonus" },
+                ],
+              },
+              {
+                title: "Deposit Bonus Tier 2",
+                fields: [
+                  { key: "deposit_bonus_2_min", label: "Min Deposit" },
+                  { key: "deposit_bonus_2_pct", label: "Bonus %" },
+                  { key: "deposit_bonus_2_max", label: "Max Bonus" },
+                ],
+              },
+              {
+                title: "Deposit Bonus Tier 3",
+                fields: [
+                  { key: "deposit_bonus_3_min", label: "Min Deposit" },
+                  { key: "deposit_bonus_3_pct", label: "Bonus %" },
+                  { key: "deposit_bonus_3_max", label: "Max Bonus" },
+                ],
+              },
+            ].map((section) => (
+              <div key={section.title} className="bg-[#111827]/80 border border-white/5 rounded-xl p-4">
+                <h3 className="text-xs font-semibold text-white/40 uppercase tracking-wider mb-3">{section.title}</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {section.fields.map((f) => (
+                    <div key={f.key}>
+                      <label className="text-[10px] text-white/30 mb-1 block">{f.label}</label>
+                      <input
+                        type="text"
+                        value={siteSettings[f.key] || ""}
+                        onChange={(e) => setSiteSettings((prev) => ({ ...prev, [f.key]: e.target.value }))}
+                        placeholder={("placeholder" in f ? (f as any).placeholder : "") || ""}
+                        className="w-full h-8 px-3 rounded-lg bg-white/5 border border-white/10 text-xs text-white placeholder:text-white/20 focus:outline-none focus:border-amber-500/40"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
         {tab === "requests" && (
           <div className="space-y-3">
             <div className="relative">
@@ -776,6 +1162,46 @@ export default function Admin() {
             <Input type="number" placeholder="Amount (BDT)" className="bg-black/30 border-white/10" value={amount} onChange={(e) => setAmount(e.target.value)} />
             <Button className="w-full bg-red-600 hover:bg-red-700" onClick={handleWithdraw}>Confirm Withdrawal</Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!noteDialog} onOpenChange={(o) => { if (!o) { setNoteDialog(null); setAdminNote(""); } }}>
+        <DialogContent className="bg-[#111827] border-white/10 text-white">
+          <DialogHeader>
+            <DialogTitle>
+              {noteDialog?.action === "approve" ? "Approve" : "Reject"} {noteDialog?.type === "deposit" ? "Deposit" : "Withdrawal"} #{noteDialog?.id}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <Input
+              placeholder="Admin note (optional)"
+              className="bg-black/30 border-white/10"
+              value={adminNote}
+              onChange={(e) => setAdminNote(e.target.value)}
+            />
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1 bg-white/5 border-white/10" onClick={() => { setNoteDialog(null); setAdminNote(""); }}>
+                Cancel
+              </Button>
+              <Button
+                className={`flex-1 ${noteDialog?.action === "approve" ? "bg-emerald-600 hover:bg-emerald-700" : "bg-red-600 hover:bg-red-700"}`}
+                onClick={handleNoteAction}
+              >
+                {noteDialog?.action === "approve" ? "Approve" : "Reject"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!screenshotDialog} onOpenChange={(o) => !o && setScreenshotDialog(null)}>
+        <DialogContent className="bg-[#111827] border-white/10 text-white max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Payment Screenshot</DialogTitle>
+          </DialogHeader>
+          {screenshotDialog && (
+            <img src={screenshotDialog} alt="Payment screenshot" className="w-full rounded-lg" />
+          )}
         </DialogContent>
       </Dialog>
     </div>

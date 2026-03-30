@@ -318,7 +318,7 @@ router.post("/auth/google", async (req: Request, res: Response) => {
           displayName: name,
           userCode,
           googleId,
-          balance: "19",
+          balance: "98",
           currency: "BDT",
           role: "player",
           isActive: true,
