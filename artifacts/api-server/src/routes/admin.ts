@@ -3,6 +3,7 @@ import { db } from "@workspace/db";
 import { usersTable, transactionsTable } from "@workspace/db/schema";
 import { eq, desc, sql } from "drizzle-orm";
 import { authMiddleware, adminMiddleware } from "./auth";
+import { requestLog, errorLog } from "../lib/request-logger";
 
 async function atomicBalanceUpdate(userId: number, amount: number, requireSufficient: boolean = false): Promise<number | null> {
   if (requireSufficient && amount < 0) {
@@ -185,6 +186,114 @@ router.get("/admin/stats", authMiddleware, adminMiddleware, async (req: Request,
   } catch (err) {
     req.log.error({ err }, "Failed to get stats");
     res.status(500).json({ success: false, message: "Failed to get stats" });
+  }
+});
+
+router.get("/admin/request-log", authMiddleware, adminMiddleware, async (_req: Request, res: Response) => {
+  res.json({ success: true, logs: requestLog.slice(0, 200) });
+});
+
+router.get("/admin/error-log", authMiddleware, adminMiddleware, async (_req: Request, res: Response) => {
+  res.json({ success: true, errors: errorLog.slice(0, 100) });
+});
+
+router.get("/admin/bonus-claims", authMiddleware, adminMiddleware, async (req: Request, res: Response) => {
+  try {
+    const limit = Math.min(Number(req.query.limit) || 100, 500);
+    const claims = await db.execute(sql`
+      SELECT bc.id, bc.user_id, bc.bonus_type, bc.bonus_key, bc.amount, bc.created_at,
+             u.display_name, u.phone
+      FROM bonus_claims bc
+      JOIN users u ON bc.user_id = u.id
+      ORDER BY bc.created_at DESC
+      LIMIT ${limit}
+    `);
+    res.json({
+      success: true,
+      claims: claims.rows.map((c: any) => ({
+        id: c.id,
+        userId: c.user_id,
+        bonusType: c.bonus_type,
+        bonusKey: c.bonus_key,
+        amount: Number(c.amount),
+        displayName: c.display_name,
+        phone: c.phone,
+        createdAt: c.created_at,
+      })),
+    });
+  } catch (err) {
+    req.log.error({ err }, "Failed to list bonus claims");
+    res.status(500).json({ success: false, message: "Failed to list bonus claims" });
+  }
+});
+
+router.get("/admin/system-health", authMiddleware, adminMiddleware, async (req: Request, res: Response) => {
+  try {
+    const relayEndpoint = (process.env["OROPLAY_API_ENDPOINT"] || "").replace(/\/+$/, "");
+
+    let relayStatus = "unknown";
+    let relayLatency = 0;
+    try {
+      const start = Date.now();
+      const relayHost = relayEndpoint.replace(/\/api\/v2$/, "");
+      const resp = await fetch(`${relayHost}/health`, { signal: AbortSignal.timeout(5000) });
+      relayLatency = Date.now() - start;
+      const data = await resp.json() as { ok?: boolean };
+      relayStatus = data.ok ? "online" : "error";
+    } catch {
+      relayStatus = "offline";
+    }
+
+    let dbStatus = "unknown";
+    let dbLatency = 0;
+    try {
+      const start = Date.now();
+      await db.execute(sql`SELECT 1`);
+      dbLatency = Date.now() - start;
+      dbStatus = "online";
+    } catch {
+      dbStatus = "offline";
+    }
+
+    const totalErrors = errorLog.length;
+    const recentErrors = errorLog.filter(
+      (e) => Date.now() - new Date(e.timestamp).getTime() < 60 * 60 * 1000
+    ).length;
+    const totalRequests = requestLog.length;
+
+    const gameCacheFile = (await import("path")).join(process.cwd(), "data", "games-cache.json");
+    let cacheInfo = { exists: false, size: 0, age: 0, totalGames: 0, totalVendors: 0 };
+    try {
+      const fs = await import("fs");
+      if (fs.existsSync(gameCacheFile)) {
+        const stat = fs.statSync(gameCacheFile);
+        const raw = fs.readFileSync(gameCacheFile, "utf-8");
+        const data = JSON.parse(raw);
+        cacheInfo = {
+          exists: true,
+          size: Math.round(stat.size / 1024),
+          age: Math.round((Date.now() - (data.timestamp || 0)) / 1000 / 60),
+          totalGames: data.totalGames || 0,
+          totalVendors: data.totalVendors || 0,
+        };
+      }
+    } catch {}
+
+    res.json({
+      success: true,
+      health: {
+        relay: { status: relayStatus, latency: relayLatency, endpoint: relayEndpoint },
+        database: { status: dbStatus, latency: dbLatency },
+        cache: cacheInfo,
+        errors: { total: totalErrors, lastHour: recentErrors },
+        requests: { tracked: totalRequests },
+        uptime: Math.round(process.uptime()),
+        memory: Math.round(process.memoryUsage().rss / 1024 / 1024),
+      },
+    });
+  } catch (err) {
+    req.log.error({ err }, "Health check failed");
+    res.status(500).json({ success: false, message: "Health check failed" });
   }
 });
 

@@ -70,6 +70,10 @@ artifacts-monorepo/
 - `POST /toggle-user` — enable/disable user {userId, isActive}
 - `GET /transactions` — transaction history with pagination
 - `GET /stats` — total users, active users, total balance
+- `GET /request-log` — in-memory API request log (last 500 requests with method, path, status, duration, user, body)
+- `GET /error-log` — in-memory error log (last 200 errors with details and request bodies)
+- `GET /bonus-claims` — all bonus claims across users with amounts
+- `GET /system-health` — relay VPS status/latency, DB status/latency, game cache info, error counts, uptime, memory
 
 ### OroPlay (`/api/oroplay/*`)
 - `POST /game/launch` — get game launch URL (requires auth)
