@@ -52,6 +52,45 @@ function saveCacheToFile(data: CachedData): void {
 
 loadCacheFromFile();
 
+async function autoRefreshCache(): Promise<void> {
+  if (memoryCache && memoryCache.games.length > 0) return;
+  const env = getEnvConfig();
+  if (!env.clientId || !env.clientSecret) {
+    console.log("[cache] Skipping auto-refresh: API credentials not configured");
+    return;
+  }
+  console.log("[cache] No games in cache, auto-refreshing from OroPlay...");
+  try {
+    const vendorData = await oroplayRequest("GET", "/vendors/list", null, env.clientId, env.clientSecret, env.apiEndpoint) as { success: boolean; message?: Array<{ vendorCode: string; type: number; name: string; url?: string }> };
+    const vendors = vendorData.message || [];
+    const allGames: Array<Record<string, unknown>> = [];
+    for (const vendor of vendors) {
+      try {
+        const gamesData = await oroplayRequest("POST", "/games/list", { vendorCode: vendor.vendorCode, language: "en" }, env.clientId, env.clientSecret, env.apiEndpoint) as { success: boolean; message?: Array<Record<string, unknown>> };
+        if (gamesData.message && Array.isArray(gamesData.message)) {
+          for (const game of gamesData.message) {
+            game.vendorCode = vendor.vendorCode;
+            allGames.push(game);
+          }
+        }
+      } catch {}
+    }
+    const cacheData: CachedData = {
+      vendors,
+      games: allGames,
+      timestamp: Date.now(),
+      totalGames: allGames.length,
+      totalVendors: vendors.length,
+    };
+    saveCacheToFile(cacheData);
+    console.log(`[cache] Auto-refresh complete: ${allGames.length} games, ${vendors.length} vendors`);
+  } catch (err) {
+    console.error("[cache] Auto-refresh failed:", err);
+  }
+}
+
+setTimeout(() => autoRefreshCache(), 3000);
+
 function getEnvConfig() {
   const endpoint = (process.env["OROPLAY_API_ENDPOINT"] || "https://bs.sxvwlkohlv.com/api/v2").replace(/\/+$/, "");
   return {
