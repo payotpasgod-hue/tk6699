@@ -14,7 +14,7 @@ Production casino platform (TK6699 branding) with phone-based auth, admin dashbo
 - **Database**: PostgreSQL + Drizzle ORM
 - **Frontend**: React + Vite + Tailwind + shadcn/ui
 - **State**: Zustand (persisted)
-- **Auth**: Phone + password, bcryptjs hashing, bearer token sessions, rate-limited registration
+- **Auth**: Phone + password, bcryptjs hashing, bearer token sessions, rate-limited registration, Google OAuth (popup flow)
 - **PWA**: manifest.json, service worker (network-first + cache fallback), install prompt (Android/iOS)
 - **Validation**: Zod (`zod/v4`), `drizzle-zod`
 - **Build**: esbuild (API server), Vite (frontend)
@@ -146,13 +146,15 @@ OroPlay → Relay VPS → Replit App (seamless wallet callbacks)
 - `OROPLAY_CLIENT_SECRET` — OroPlay client secret
 - `OROPLAY_API_ENDPOINT` — Relay VPS endpoint
 - `SESSION_SECRET` — Session signing secret
+- `VITE_GOOGLE_CLIENT_ID` — Google OAuth 2.0 Client ID for Google Sign-In
 
 ## UI Assets
 
 - **Company logo**: `public/images/logo.png` — AI-generated TK6699 logo with golden crown
 - **Promo banners**: `public/images/promo-*.png` — Welcome, VIP, Slots, Cashback banners for carousel (image-only, no text overlay)
 - **Provider logos**: Real logos from cdn.softswiss.net CDN with text-initial fallback
-- **Login/Register**: Google sign-in button (placeholder — needs Google OAuth credentials to activate)
+- **Login/Register**: Google Sign-In via OAuth popup flow (custom styled button, works in iframes)
+- **Google auth helper**: `src/lib/google-auth.ts` — popup OAuth + redirect fallback
 - **Bonus page** (`/bonus`): Gift Box (9 mystery boxes), Lucky Spin wheel, Daily Login Rewards, Hourly Bonus, Missions, VIP Tiers, Referral System
 
 ## Color Theme
