@@ -489,7 +489,7 @@ router.post("/balance", async (req: Request, res: Response) => {
 
     const users = await db.select().from(usersTable).where(eq(usersTable.userCode, userCode)).limit(1);
     if (users.length === 0) {
-      res.json({ success: true, message: 0, errorCode: 0 });
+      res.json({ success: false, message: 0, errorCode: 2 });
       return;
     }
 
@@ -511,23 +511,31 @@ router.post("/transaction", async (req: Request, res: Response) => {
       userCode,
       vendorCode,
       gameCode,
+      historyId,
       roundId,
+      gameType,
       transactionCode,
       isFinished,
       isCanceled,
       amount,
+      detail,
+      createdAt,
     } = req.body as {
       userCode?: string;
       vendorCode?: string;
       gameCode?: string;
+      historyId?: number;
       roundId?: string;
+      gameType?: number;
       transactionCode?: string;
       isFinished?: boolean;
       isCanceled?: boolean;
       amount?: number;
+      detail?: string;
+      createdAt?: string;
     };
 
-    req.log.info({ userCode, vendorCode, gameCode, transactionCode, amount, roundId, isFinished, isCanceled }, "Seamless wallet: transaction callback");
+    req.log.info({ userCode, vendorCode, gameCode, historyId, transactionCode, amount, roundId, gameType, isFinished, isCanceled }, "Seamless wallet: transaction callback");
 
     if (!userCode || amount === undefined || !transactionCode) {
       res.status(400).json({ success: false, errorCode: 400, message: "Missing required fields" });
@@ -642,13 +650,18 @@ router.post("/batch-transactions", async (req: Request, res: Response) => {
     const { userCode, transactions } = req.body as {
       userCode?: string;
       transactions?: Array<{
+        userCode?: string;
         vendorCode?: string;
         gameCode?: string;
+        historyId?: number;
         roundId?: string;
+        gameType?: number;
         transactionCode?: string;
         isFinished?: boolean;
         isCanceled?: boolean;
         amount?: number;
+        detail?: string;
+        createdAt?: string;
       }>;
     };
 
