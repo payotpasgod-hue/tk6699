@@ -20,7 +20,17 @@ export async function apiRequest(
     headers,
   });
 
-  const data = await res.json();
+  const text = await res.text();
+  let data: any;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new Error(
+      res.ok
+        ? "Unexpected server response. Please try again."
+        : `Server error (${res.status}). Please try again.`
+    );
+  }
 
   if (!res.ok) {
     throw new Error(data.message || `Request failed: ${res.status}`);

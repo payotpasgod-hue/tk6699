@@ -145,7 +145,15 @@ async function oroplayRequest(
   try {
     result = JSON.parse(text);
   } catch {
-    if (!resp.ok) throw new Error(`OroPlay API error ${resp.status}: ${text}`);
+    if (!resp.ok) {
+      const snippet = text.length > 200 ? text.substring(0, 200) + "..." : text;
+      const isHtml = text.trimStart().startsWith("<");
+      throw new Error(
+        isHtml
+          ? `OroPlay service unavailable (${resp.status}). Please try again.`
+          : `OroPlay API error ${resp.status}: ${snippet}`
+      );
+    }
     return text;
   }
   if (!resp.ok) {

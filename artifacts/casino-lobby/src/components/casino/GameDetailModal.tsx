@@ -70,7 +70,12 @@ export function GameDetailModal({ game, vendor, open, onClose }: GameDetailModal
         throw new Error("No game URL returned");
       }
     } catch (err: any) {
-      setLaunchError(err.message || "Failed to launch game");
+      const msg = err.message || "Failed to launch game";
+      setLaunchError(
+        msg.includes("service unavailable") || msg.includes("Server error")
+          ? "Game server is temporarily unavailable. Please try again in a moment."
+          : msg
+      );
     } finally {
       setIsLaunching(false);
     }
