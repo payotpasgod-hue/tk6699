@@ -79,6 +79,10 @@ artifacts-monorepo/
 - `GET /cache` — cached game data (public)
 - `GET /vendors`, `POST /games`, `POST /game/detail` — game catalog
 
+### Bonus (`/api/bonus/*`) — requires auth
+- `POST /claim` — claim a bonus {bonusType, bonusKey} → amount + newBalance
+- `GET /claims` — list all claims for current user
+
 ### Seamless Wallet Callbacks (`/api/*`) — Basic auth (clientId:clientSecret)
 - `POST /balance` — OroPlay queries player balance
 - `POST /transaction` — single transaction (bet/win/cancel)
@@ -101,7 +105,13 @@ artifacts-monorepo/
 - **Registration bonus**: ৳19 credited immediately on new account creation (no deposit required)
 - **Welcome bonus package**: ৳575 total (displayed on login/register pages via popup modal)
   - ৳19 registration (free), ৳156 first deposit (100%), ৳100 second deposit (50%), ৳100 third deposit (25%), ৳100 daily cashback (10%), ৳100 VIP weekly
-- **Bonus Center page**: Gift boxes, spin wheel, daily rewards, VIP tiers, referral — UI-only (decorative, no real balance mutations)
+- **Bonus Center page**: Gift boxes, spin wheel, daily rewards, hourly bonus — all call `/api/bonus/claim` for real balance mutations with advisory-locked atomic updates
+  - Gift boxes: 9 mystery boxes, weighted random ৳5-500, each claimable once
+  - Lucky Spin: random ৳10-500, 1x per hour (server-enforced)
+  - Daily rewards: 7-day streak (৳10/20/30/50/75/100/500), each day claimable once
+  - Hourly bonus: random ৳5-100, 1x per hour (server-enforced via DB timestamp)
+  - Claims tracked in `bonus_claims` table with duplicate prevention
+  - VIP tiers and referral: UI-only (decorative)
 - **Welcome popup**: Appears on first visit to login page (session-scoped, dismissed after viewing)
 
 ## PWA Support

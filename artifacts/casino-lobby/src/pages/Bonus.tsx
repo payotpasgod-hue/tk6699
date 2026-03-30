@@ -3,28 +3,36 @@ import { Navbar } from "@/components/casino/Navbar";
 import { BottomNav } from "@/components/casino/BottomNav";
 import { useAuthStore } from "@/store/use-auth-store";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/api";
 import {
   Gift, Coins, Trophy, Percent, Star, Crown, Clock,
   Zap, Users, Calendar, ChevronRight, Sparkles, Target, Lock
 } from "lucide-react";
 
 const DAILY_REWARDS = [
-  { day: 1, amount: 10, claimed: true },
-  { day: 2, amount: 20, claimed: true },
-  { day: 3, amount: 30, claimed: false },
-  { day: 4, amount: 50, claimed: false },
-  { day: 5, amount: 75, claimed: false },
-  { day: 6, amount: 100, claimed: false },
-  { day: 7, amount: 500, claimed: false, special: true },
+  { day: 1, amount: 10 },
+  { day: 2, amount: 20 },
+  { day: 3, amount: 30 },
+  { day: 4, amount: 50 },
+  { day: 5, amount: 75 },
+  { day: 6, amount: 100 },
+  { day: 7, amount: 500, special: true },
 ];
 
 const VIP_TIERS = [
-  { name: "Bronze", icon: "🥉", min: 0, cashback: 1, bonus: 5 },
-  { name: "Silver", icon: "🥈", min: 5000, cashback: 2, bonus: 10 },
-  { name: "Gold", icon: "🥇", min: 25000, cashback: 3, bonus: 15 },
-  { name: "Platinum", icon: "💎", min: 100000, cashback: 5, bonus: 20 },
-  { name: "Diamond", icon: "👑", min: 500000, cashback: 7, bonus: 30 },
+  { name: "Bronze", icon: "\u{1F949}", min: 0, cashback: 1, bonus: 5 },
+  { name: "Silver", icon: "\u{1F948}", min: 5000, cashback: 2, bonus: 10 },
+  { name: "Gold", icon: "\u{1F947}", min: 25000, cashback: 3, bonus: 15 },
+  { name: "Platinum", icon: "\u{1F48E}", min: 100000, cashback: 5, bonus: 20 },
+  { name: "Diamond", icon: "\u{1F451}", min: 500000, cashback: 7, bonus: 30 },
 ];
+
+interface ClaimedBonus {
+  bonusType: string;
+  bonusKey: string;
+  amount: string;
+  claimedAt: string;
+}
 
 export default function Bonus() {
   const { user, updateUser } = useAuthStore();
@@ -34,16 +42,46 @@ export default function Bonus() {
   const [spinAngle, setSpinAngle] = useState(0);
   const [isSpinning, setIsSpinning] = useState(false);
   const [cooldown, setCooldown] = useState(0);
+  const [claimedBonuses, setClaimedBonuses] = useState<ClaimedBonus[]>([]);
+  const [claiming, setClaiming] = useState(false);
 
   useEffect(() => {
-    setGiftBoxes(
-      Array.from({ length: 9 }, (_, i) => ({
-        id: i,
-        opened: false,
-        amount: null,
-      }))
-    );
+    loadClaims();
   }, []);
+
+  const loadClaims = async () => {
+    try {
+      const data = await apiRequest("/api/bonus/claims");
+      if (data.success) {
+        setClaimedBonuses(data.claims);
+        initGiftBoxes(data.claims);
+        initCooldown(data.claims);
+      }
+    } catch {
+      initGiftBoxes([]);
+    }
+  };
+
+  const initGiftBoxes = (claims: ClaimedBonus[]) => {
+    const boxes = Array.from({ length: 9 }, (_, i) => {
+      const claim = claims.find((c) => c.bonusType === "gift_box" && c.bonusKey === `box_${i}`);
+      return {
+        id: i,
+        opened: !!claim,
+        amount: claim ? Number(claim.amount) : null,
+      };
+    });
+    setGiftBoxes(boxes);
+  };
+
+  const initCooldown = (claims: ClaimedBonus[]) => {
+    const spinClaim = claims.find((c) => c.bonusType === "spin");
+    if (spinClaim) {
+      const elapsed = Date.now() - new Date(spinClaim.claimedAt).getTime();
+      const remaining = Math.max(0, 3600 - Math.floor(elapsed / 1000));
+      setCooldown(remaining);
+    }
+  };
 
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -51,53 +89,105 @@ export default function Bonus() {
     return () => clearInterval(timer);
   }, [cooldown]);
 
-  const openGiftBox = useCallback((id: number) => {
-    if (giftBoxes[id]?.opened) return;
+  const isAlreadyClaimed = (type: string, key: string) => {
+    return claimedBonuses.some((c) => c.bonusType === type && c.bonusKey === key);
+  };
 
-    const amounts = [5, 10, 15, 20, 25, 50, 75, 100, 200, 500];
-    const weights = [30, 25, 15, 10, 8, 5, 3, 2, 1.5, 0.5];
-    const totalWeight = weights.reduce((a, b) => a + b, 0);
-    let random = Math.random() * totalWeight;
-    let selectedAmount = amounts[0];
-    for (let i = 0; i < weights.length; i++) {
-      random -= weights[i];
-      if (random <= 0) {
-        selectedAmount = amounts[i];
-        break;
+  const claimBonus = async (bonusType: string, bonusKey: string): Promise<{ success: boolean; amount?: number; newBalance?: number; message?: string }> => {
+    setClaiming(true);
+    try {
+      const data = await apiRequest("/api/bonus/claim", {
+        method: "POST",
+        body: JSON.stringify({ bonusType, bonusKey }),
+      });
+      if (data.success) {
+        updateUser({ balance: data.newBalance });
+        setClaimedBonuses((prev) => [...prev, { bonusType, bonusKey, amount: String(data.amount), claimedAt: new Date().toISOString() }]);
       }
+      return data;
+    } catch (err: any) {
+      return { success: false, message: err.message };
+    } finally {
+      setClaiming(false);
     }
+  };
 
-    setGiftBoxes((prev) =>
-      prev.map((box) =>
-        box.id === id ? { ...box, opened: true, amount: selectedAmount } : box
-      )
-    );
+  const openGiftBox = useCallback(async (id: number) => {
+    if (giftBoxes[id]?.opened || claiming) return;
 
-    toast({
-      title: `🎁 You won ৳${selectedAmount}!`,
-      description: "Bonus added to your account",
-    });
-  }, [giftBoxes, toast]);
+    const result = await claimBonus("gift_box", `box_${id}`);
+    if (result.success && result.amount) {
+      setGiftBoxes((prev) =>
+        prev.map((box) =>
+          box.id === id ? { ...box, opened: true, amount: result.amount! } : box
+        )
+      );
+      toast({
+        title: `\u{1F381} You won \u09F3${result.amount}!`,
+        description: `Balance: \u09F3${result.newBalance?.toFixed(2)}`,
+      });
+    } else {
+      toast({ variant: "destructive", title: "Claim Failed", description: result.message || "Try again" });
+    }
+  }, [giftBoxes, claiming, toast]);
 
-  const handleSpin = useCallback(() => {
-    if (isSpinning || cooldown > 0) return;
+  const handleSpin = useCallback(async () => {
+    if (isSpinning || cooldown > 0 || claiming) return;
 
     setIsSpinning(true);
-    const prizes = [10, 25, 50, 100, 200, 500, 20, 75];
-    const idx = Math.floor(Math.random() * prizes.length);
-    const targetAngle = 360 * 5 + idx * (360 / prizes.length);
+    const result = await claimBonus("spin", `spin_${Date.now()}`);
 
-    setSpinAngle(targetAngle);
+    if (result.success && result.amount) {
+      const prizes = [10, 25, 50, 100, 200, 500, 20, 75];
+      const idx = prizes.indexOf(result.amount);
+      const targetIdx = idx >= 0 ? idx : 0;
+      const targetAngle = 360 * 5 + targetIdx * (360 / prizes.length);
+      setSpinAngle(targetAngle);
 
-    setTimeout(() => {
+      setTimeout(() => {
+        setIsSpinning(false);
+        setCooldown(3600);
+        toast({
+          title: `\u{1F3B0} Spin Result: \u09F3${result.amount}!`,
+          description: `Balance: \u09F3${result.newBalance?.toFixed(2)}`,
+        });
+      }, 4000);
+    } else {
       setIsSpinning(false);
-      setCooldown(3600);
+      toast({ variant: "destructive", title: "Spin Failed", description: result.message || "Try again later" });
+    }
+  }, [isSpinning, cooldown, claiming, toast]);
+
+  const handleDailyClaim = async (day: number) => {
+    if (claiming) return;
+    const key = `day_${day}`;
+    if (isAlreadyClaimed("daily", key)) {
+      toast({ variant: "destructive", title: "Already Claimed", description: `Day ${day} reward was already claimed` });
+      return;
+    }
+    const result = await claimBonus("daily", key);
+    if (result.success) {
       toast({
-        title: `🎰 Spin Result: ৳${prizes[idx]}!`,
-        description: "Your winnings have been credited",
+        title: `\u{1F4C5} Day ${day} Reward: \u09F3${result.amount}!`,
+        description: `Balance: \u09F3${result.newBalance?.toFixed(2)}`,
       });
-    }, 4000);
-  }, [isSpinning, cooldown, toast]);
+    } else {
+      toast({ variant: "destructive", title: "Claim Failed", description: result.message || "Try again" });
+    }
+  };
+
+  const handleHourlyClaim = async () => {
+    if (claiming) return;
+    const result = await claimBonus("hourly", `hourly_${Date.now()}`);
+    if (result.success) {
+      toast({
+        title: `\u23F0 Hourly Bonus: \u09F3${result.amount}!`,
+        description: `Balance: \u09F3${result.newBalance?.toFixed(2)}`,
+      });
+    } else {
+      toast({ variant: "destructive", title: "Claim Failed", description: result.message || "Try again later" });
+    }
+  };
 
   const formatTime = (seconds: number) => {
     const h = Math.floor(seconds / 3600);
@@ -112,6 +202,8 @@ export default function Bonus() {
     { id: "vip" as const, label: "VIP", icon: Crown },
     { id: "referral" as const, label: "Referral", icon: Users },
   ];
+
+  const nextUnclaimedDay = DAILY_REWARDS.find((r) => !isAlreadyClaimed("daily", `day_${r.day}`));
 
   return (
     <div className="min-h-screen bg-[#070b14] text-white pb-20 sm:pb-8">
@@ -164,7 +256,7 @@ export default function Bonus() {
                   <button
                     key={box.id}
                     onClick={() => openGiftBox(box.id)}
-                    disabled={box.opened}
+                    disabled={box.opened || claiming}
                     className={`relative aspect-square rounded-xl flex flex-col items-center justify-center transition-all duration-500 ${
                       box.opened
                         ? "bg-amber-500/10 border border-amber-500/20"
@@ -174,7 +266,7 @@ export default function Bonus() {
                     {box.opened ? (
                       <>
                         <Coins className="w-6 h-6 text-amber-400 mb-1" />
-                        <span className="text-lg font-bold text-amber-400">৳{box.amount}</span>
+                        <span className="text-lg font-bold text-amber-400">{"\u09F3"}{box.amount}</span>
                       </>
                     ) : (
                       <>
@@ -238,7 +330,7 @@ export default function Bonus() {
                               transform: "translate(-50%, -50%)",
                             }}
                           >
-                            ৳{prize}
+                            {"\u09F3"}{prize}
                           </span>
                         </div>
                       );
@@ -249,9 +341,9 @@ export default function Bonus() {
 
                 <button
                   onClick={handleSpin}
-                  disabled={isSpinning || cooldown > 0}
+                  disabled={isSpinning || cooldown > 0 || claiming}
                   className={`px-8 py-3 rounded-xl font-bold text-sm transition-all ${
-                    isSpinning || cooldown > 0
+                    isSpinning || cooldown > 0 || claiming
                       ? "bg-white/5 text-white/20 cursor-not-allowed"
                       : "bg-gradient-to-r from-amber-500 to-orange-500 text-black hover:from-amber-400 hover:to-orange-400 shadow-lg shadow-amber-500/20"
                   }`}
@@ -268,7 +360,7 @@ export default function Bonus() {
                 </div>
                 <h3 className="text-sm font-bold text-white mb-1">Deposit Bonus</h3>
                 <p className="text-[11px] text-white/30 mb-2">100% match on first deposit</p>
-                <p className="text-xs font-bold text-amber-400">Up to ৳10,000</p>
+                <p className="text-xs font-bold text-amber-400">Up to {"\u09F3"}10,000</p>
               </div>
               <div className="bg-[#111827]/80 border border-white/5 rounded-xl p-4 hover:border-emerald-500/20 transition-colors">
                 <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center mb-3">
@@ -284,7 +376,7 @@ export default function Bonus() {
                 </div>
                 <h3 className="text-sm font-bold text-white mb-1">Weekly Tournament</h3>
                 <p className="text-[11px] text-white/30 mb-2">Compete for big prizes</p>
-                <p className="text-xs font-bold text-blue-400">৳500,000 Pool</p>
+                <p className="text-xs font-bold text-blue-400">{"\u09F3"}500,000 Pool</p>
               </div>
               <div className="bg-[#111827]/80 border border-white/5 rounded-xl p-4 hover:border-purple-500/20 transition-colors">
                 <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center mb-3">
@@ -292,7 +384,7 @@ export default function Bonus() {
                 </div>
                 <h3 className="text-sm font-bold text-white mb-1">Reload Bonus</h3>
                 <p className="text-[11px] text-white/30 mb-2">50% on every reload</p>
-                <p className="text-xs font-bold text-purple-400">Up to ৳5,000</p>
+                <p className="text-xs font-bold text-purple-400">Up to {"\u09F3"}5,000</p>
               </div>
             </div>
           </div>
@@ -308,36 +400,53 @@ export default function Bonus() {
               <p className="text-xs text-white/30 mb-4">Log in every day to claim increasing rewards!</p>
 
               <div className="grid grid-cols-7 gap-2">
-                {DAILY_REWARDS.map((reward) => (
-                  <div
-                    key={reward.day}
-                    className={`relative flex flex-col items-center p-2 rounded-xl border transition-all ${
-                      reward.claimed
-                        ? "bg-amber-500/10 border-amber-500/20"
-                        : reward.day === 3
-                          ? "bg-amber-500/20 border-amber-500/40 ring-2 ring-amber-500/30 animate-pulse"
-                          : "bg-white/[0.02] border-white/5"
-                    }`}
-                  >
-                    <span className="text-[10px] text-white/30 mb-1">Day {reward.day}</span>
-                    {reward.special ? (
-                      <Crown className="w-5 h-5 text-amber-400 mb-1" />
-                    ) : (
-                      <Coins className="w-4 h-4 text-amber-400/60 mb-1" />
-                    )}
-                    <span className={`text-xs font-bold ${reward.claimed ? "text-amber-400" : "text-white/50"}`}>
-                      ৳{reward.amount}
-                    </span>
-                    {reward.claimed && (
-                      <span className="text-[8px] text-emerald-400 mt-0.5">✓</span>
-                    )}
-                  </div>
-                ))}
+                {DAILY_REWARDS.map((reward) => {
+                  const claimed = isAlreadyClaimed("daily", `day_${reward.day}`);
+                  const isNext = nextUnclaimedDay?.day === reward.day;
+                  return (
+                    <button
+                      key={reward.day}
+                      onClick={() => isNext && handleDailyClaim(reward.day)}
+                      disabled={claimed || !isNext || claiming}
+                      className={`relative flex flex-col items-center p-2 rounded-xl border transition-all ${
+                        claimed
+                          ? "bg-amber-500/10 border-amber-500/20"
+                          : isNext
+                            ? "bg-amber-500/20 border-amber-500/40 ring-2 ring-amber-500/30 animate-pulse cursor-pointer"
+                            : "bg-white/[0.02] border-white/5 opacity-50"
+                      }`}
+                    >
+                      <span className="text-[10px] text-white/30 mb-1">Day {reward.day}</span>
+                      {reward.special ? (
+                        <Crown className="w-5 h-5 text-amber-400 mb-1" />
+                      ) : (
+                        <Coins className="w-4 h-4 text-amber-400/60 mb-1" />
+                      )}
+                      <span className={`text-xs font-bold ${claimed ? "text-amber-400" : "text-white/50"}`}>
+                        {"\u09F3"}{reward.amount}
+                      </span>
+                      {claimed && (
+                        <span className="text-[8px] text-emerald-400 mt-0.5">{"\u2713"}</span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
 
-              <button className="w-full mt-4 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-black font-bold text-sm shadow-lg shadow-amber-500/20 hover:from-amber-400 hover:to-orange-400 transition-all">
-                Claim Day 3 Reward — ৳30
-              </button>
+              {nextUnclaimedDay && (
+                <button
+                  onClick={() => handleDailyClaim(nextUnclaimedDay.day)}
+                  disabled={claiming}
+                  className="w-full mt-4 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-black font-bold text-sm shadow-lg shadow-amber-500/20 hover:from-amber-400 hover:to-orange-400 transition-all disabled:opacity-50"
+                >
+                  {claiming ? "Claiming..." : `Claim Day ${nextUnclaimedDay.day} Reward \u2014 \u09F3${nextUnclaimedDay.amount}`}
+                </button>
+              )}
+              {!nextUnclaimedDay && (
+                <div className="w-full mt-4 py-3 rounded-xl bg-white/5 text-white/30 font-bold text-sm text-center">
+                  All daily rewards claimed!
+                </div>
+              )}
             </div>
 
             <div className="bg-[#111827]/80 border border-white/5 rounded-2xl p-5">
@@ -349,20 +458,15 @@ export default function Bonus() {
 
               <div className="flex items-center justify-between bg-blue-500/10 border border-blue-500/20 rounded-xl p-4">
                 <div>
-                  <p className="text-sm font-bold text-white">Random ৳5 — ৳100</p>
-                  <p className="text-xs text-white/30 mt-1">Next claim available now</p>
+                  <p className="text-sm font-bold text-white">Random {"\u09F3"}5 {"\u2014"} {"\u09F3"}100</p>
+                  <p className="text-xs text-white/30 mt-1">Claim once per hour</p>
                 </div>
                 <button
-                  onClick={() => {
-                    const amount = Math.floor(Math.random() * 96) + 5;
-                    toast({
-                      title: `⏰ Hourly Bonus: ৳${amount}!`,
-                      description: "Credited to your balance",
-                    });
-                  }}
-                  className="px-5 py-2.5 rounded-lg bg-gradient-to-r from-blue-500 to-indigo-500 text-white font-bold text-sm hover:from-blue-400 hover:to-indigo-400 transition-all"
+                  onClick={handleHourlyClaim}
+                  disabled={claiming}
+                  className="px-5 py-2.5 rounded-lg bg-gradient-to-r from-blue-500 to-indigo-500 text-white font-bold text-sm hover:from-blue-400 hover:to-indigo-400 transition-all disabled:opacity-50"
                 >
-                  Claim
+                  {claiming ? "..." : "Claim"}
                 </button>
               </div>
             </div>
@@ -394,7 +498,7 @@ export default function Bonus() {
                         <span className="text-[10px] text-white/30">{mission.progress}/{mission.total}</span>
                       </div>
                     </div>
-                    <span className="text-xs font-bold text-amber-400 flex-shrink-0">৳{mission.reward}</span>
+                    <span className="text-xs font-bold text-amber-400 flex-shrink-0">{"\u09F3"}{mission.reward}</span>
                   </div>
                 ))}
               </div>
@@ -406,10 +510,10 @@ export default function Bonus() {
           <div className="space-y-4">
             <div className="bg-gradient-to-br from-amber-500/10 to-orange-600/10 border border-amber-500/20 rounded-2xl p-5">
               <div className="flex items-center gap-3 mb-3">
-                <span className="text-3xl">🥉</span>
+                <span className="text-3xl">{"\u{1F949}"}</span>
                 <div>
                   <h2 className="text-lg font-bold text-white">Bronze Member</h2>
-                  <p className="text-xs text-white/30">Total wagered: ৳0 / ৳5,000 to Silver</p>
+                  <p className="text-xs text-white/30">Total wagered: {"\u09F3"}0 / {"\u09F3"}5,000 to Silver</p>
                 </div>
               </div>
               <div className="h-2 bg-white/5 rounded-full overflow-hidden">
@@ -431,7 +535,7 @@ export default function Bonus() {
                   <div className="flex-1">
                     <h3 className="text-sm font-bold text-white">{tier.name}</h3>
                     <p className="text-[11px] text-white/30">
-                      Wager ৳{tier.min.toLocaleString()}+
+                      Wager {"\u09F3"}{tier.min.toLocaleString()}+
                     </p>
                   </div>
                   <div className="text-right">
@@ -453,7 +557,7 @@ export default function Bonus() {
                 Invite Friends & Earn
               </h2>
               <p className="text-xs text-white/30 mb-4">
-                Share your referral code and earn ৳200 for every friend who signs up and makes a deposit!
+                Share your referral code and earn {"\u09F3"}200 for every friend who signs up and makes a deposit!
               </p>
 
               <div className="bg-white/[0.03] border border-white/10 rounded-xl p-4 mb-4">
@@ -480,11 +584,11 @@ export default function Bonus() {
                   <p className="text-[10px] text-white/30">Friends Invited</p>
                 </div>
                 <div className="text-center bg-white/[0.02] rounded-xl p-3 border border-white/5">
-                  <p className="text-xl font-bold text-emerald-400">৳0</p>
+                  <p className="text-xl font-bold text-emerald-400">{"\u09F3"}0</p>
                   <p className="text-[10px] text-white/30">Total Earned</p>
                 </div>
                 <div className="text-center bg-white/[0.02] rounded-xl p-3 border border-white/5">
-                  <p className="text-xl font-bold text-blue-400">৳200</p>
+                  <p className="text-xl font-bold text-blue-400">{"\u09F3"}200</p>
                   <p className="text-[10px] text-white/30">Per Referral</p>
                 </div>
               </div>
@@ -493,18 +597,35 @@ export default function Bonus() {
                 <h3 className="text-sm font-bold text-white/60">How it works</h3>
                 {[
                   { step: 1, text: "Share your referral code with friends" },
-                  { step: 2, text: "Friend signs up using your code" },
-                  { step: 3, text: "Friend makes their first deposit" },
-                  { step: 4, text: "You both receive ৳200 bonus!" },
+                  { step: 2, text: "They sign up using your code" },
+                  { step: 3, text: "They make their first deposit" },
+                  { step: 4, text: "You both get {}\u09F3200 bonus!" },
                 ].map((item) => (
-                  <div key={item.step} className="flex items-center gap-3 py-2">
-                    <div className="w-6 h-6 rounded-full bg-amber-500/20 flex items-center justify-center flex-shrink-0">
-                      <span className="text-xs font-bold text-amber-400">{item.step}</span>
-                    </div>
-                    <p className="text-sm text-white/50">{item.text}</p>
+                  <div key={item.step} className="flex items-center gap-3 bg-white/[0.02] rounded-xl p-3 border border-white/5">
+                    <span className="w-6 h-6 rounded-full bg-amber-500/10 text-amber-400 text-xs font-bold flex items-center justify-center flex-shrink-0">
+                      {item.step}
+                    </span>
+                    <span className="text-sm text-white/60">{item.text}</span>
                   </div>
                 ))}
               </div>
+
+              <button
+                onClick={() => {
+                  const shareText = `Join TK6699 Casino with my code ${user?.userCode?.toUpperCase() || "TK6699REF"} and get \u09F3200 bonus!`;
+                  if (navigator.share) {
+                    navigator.share({ title: "TK6699 Casino", text: shareText });
+                  } else {
+                    navigator.clipboard.writeText(shareText);
+                    toast({ title: "Copied!", description: "Share message copied to clipboard" });
+                  }
+                }}
+                className="w-full mt-4 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-black font-bold text-sm shadow-lg shadow-amber-500/20 hover:from-amber-400 hover:to-orange-400 transition-all flex items-center justify-center gap-2"
+              >
+                <Users className="w-4 h-4" />
+                Share & Invite Friends
+                <ChevronRight className="w-4 h-4" />
+              </button>
             </div>
           </div>
         )}

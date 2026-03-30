@@ -3,12 +3,14 @@ import healthRouter from "./health";
 import oroplayRouter from "./oroplay";
 import authRouter from "./auth";
 import adminRouter from "./admin";
+import bonusRouter from "./bonus";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
 router.use(authRouter);
 router.use(adminRouter);
+router.use(bonusRouter);
 router.use(oroplayRouter);
 
 export default router;
