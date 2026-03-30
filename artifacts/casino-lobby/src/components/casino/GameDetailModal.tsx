@@ -7,14 +7,15 @@ import { useAuthStore } from "@/store/use-auth-store";
 import { useLobbyStore } from "@/store/use-lobby-store";
 import { apiRequest } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+import { useT } from "@/lib/i18n";
 import type { Game, Vendor } from "@workspace/api-client-react";
 
-const TYPE_LABELS: Record<number, string> = {
-  1: "Live Casino",
-  2: "Slot",
-  3: "Crash",
-  4: "Fishing",
-  6: "Table Game",
+const TYPE_LABEL_KEYS: Record<number, string> = {
+  1: "game.liveCasino",
+  2: "game.slot",
+  3: "game.crash",
+  4: "game.fishing",
+  6: "game.tableGame",
 };
 
 interface GameDetailModalProps {
@@ -30,19 +31,21 @@ export function GameDetailModal({ game, vendor, open, onClose }: GameDetailModal
   const { toast } = useToast();
   const [isLaunching, setIsLaunching] = useState(false);
   const [launchError, setLaunchError] = useState<string | null>(null);
+  const t = useT();
 
   if (!game) return null;
 
-  const typeLabel = vendor ? TYPE_LABELS[vendor.type] || "Game" : "Game";
+  const typeLabelKey = vendor ? TYPE_LABEL_KEYS[vendor.type] || "game.game" : "game.game";
+  const typeLabel = t(typeLabelKey);
 
   const handleLaunch = async () => {
     if (!user) {
-      toast({ variant: "destructive", title: "Not Logged In", description: "Please log in to play games." });
+      toast({ variant: "destructive", title: t("game.notLoggedIn"), description: t("game.pleaseLogin") });
       return;
     }
 
     if ((user.balance || 0) <= 0) {
-      toast({ variant: "destructive", title: "No Balance", description: "Contact admin to add funds to your account." });
+      toast({ variant: "destructive", title: t("game.noBalance"), description: t("game.contactAdmin") });
       return;
     }
 
@@ -73,7 +76,7 @@ export function GameDetailModal({ game, vendor, open, onClose }: GameDetailModal
       const msg = err.message || "Failed to launch game";
       setLaunchError(
         msg.includes("service unavailable") || msg.includes("Server error")
-          ? "Game server is temporarily unavailable. Please try again in a moment."
+          ? t("game.serverUnavailable")
           : msg
       );
     } finally {
@@ -85,7 +88,7 @@ export function GameDetailModal({ game, vendor, open, onClose }: GameDetailModal
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="bg-[#111827]/98 backdrop-blur-xl border-white/10 text-white p-0 max-w-lg overflow-hidden">
         <DialogTitle className="sr-only">{game.gameName}</DialogTitle>
-        <DialogDescription className="sr-only">Game details for {game.gameName}</DialogDescription>
+        <DialogDescription className="sr-only">{t("game.detailsFor")} {game.gameName}</DialogDescription>
         <div className="relative">
           <div className="aspect-video w-full bg-gradient-to-br from-[#111827] to-black overflow-hidden relative">
             {game.thumbnail ? (
@@ -104,10 +107,10 @@ export function GameDetailModal({ game, vendor, open, onClose }: GameDetailModal
 
             <div className="absolute top-3 left-3 flex gap-2">
               {game.isNew && (
-                <Badge className="bg-green-500/90 text-white text-xs font-bold border-none">NEW</Badge>
+                <Badge className="bg-green-500/90 text-white text-xs font-bold border-none">{t("lobby.new")}</Badge>
               )}
               {game.underMaintenance && (
-                <Badge variant="destructive" className="text-xs font-bold border-none">MAINTENANCE</Badge>
+                <Badge variant="destructive" className="text-xs font-bold border-none">{t("lobby.maintenance")}</Badge>
               )}
             </div>
 
@@ -128,14 +131,14 @@ export function GameDetailModal({ game, vendor, open, onClose }: GameDetailModal
               <div className="bg-white/[0.03] rounded-lg p-3 border border-white/5">
                 <div className="flex items-center gap-1.5 mb-1">
                   <Server className="w-3 h-3 text-white/30" />
-                  <span className="text-[10px] text-white/30 uppercase font-semibold">Provider</span>
+                  <span className="text-[10px] text-white/30 uppercase font-semibold">{t("game.provider")}</span>
                 </div>
                 <p className="text-sm text-white truncate">{vendor?.name || game.vendorCode}</p>
               </div>
               <div className="bg-white/[0.03] rounded-lg p-3 border border-white/5">
                 <div className="flex items-center gap-1.5 mb-1">
                   <Tag className="w-3 h-3 text-white/30" />
-                  <span className="text-[10px] text-white/30 uppercase font-semibold">Type</span>
+                  <span className="text-[10px] text-white/30 uppercase font-semibold">{t("game.type")}</span>
                 </div>
                 <p className="text-sm text-white truncate">{typeLabel}</p>
               </div>
@@ -145,7 +148,7 @@ export function GameDetailModal({ game, vendor, open, onClose }: GameDetailModal
               <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 flex items-start gap-2">
                 <AlertTriangle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
                 <div>
-                  <p className="text-xs font-semibold text-red-400 mb-0.5">Launch Failed</p>
+                  <p className="text-xs font-semibold text-red-400 mb-0.5">{t("game.launchFailed")}</p>
                   <p className="text-xs text-red-400/80">{launchError}</p>
                 </div>
               </div>
@@ -162,7 +165,7 @@ export function GameDetailModal({ game, vendor, open, onClose }: GameDetailModal
                 ) : (
                   <Play className="w-4 h-4 mr-2" />
                 )}
-                {isLaunching ? "Launching..." : "Play Now"}
+                {isLaunching ? t("game.launching") : t("lobby.playNow")}
               </Button>
               <Button
                 variant="outline"

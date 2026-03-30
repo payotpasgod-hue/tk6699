@@ -12,6 +12,7 @@ import { useAuthStore } from "@/store/use-auth-store";
 import { apiRequest } from "@/lib/api";
 import { isBDVendor, isBDHotGame } from "@/lib/bd-games";
 import { Flame, Search, X } from "lucide-react";
+import { useT } from "@/lib/i18n";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -21,6 +22,7 @@ export default function Lobby() {
   const [isLoadingGames] = useState(false);
   const [loadProgress] = useState({ current: 0, total: 0 });
   const [localSearch, setLocalSearch] = useState("");
+  const t = useT();
 
   const loadFromCache = useCallback(async () => {
     try {
@@ -96,9 +98,9 @@ export default function Lobby() {
               <div className="mb-6">
                 <div className="flex items-center gap-2 mb-3 px-1">
                   <Flame className="w-5 h-5 text-orange-400" />
-                  <h2 className="text-base font-display font-bold text-white">Hot in Bangladesh</h2>
+                  <h2 className="text-base font-display font-bold text-white">{t("lobby.hotInBD")}</h2>
                   <span className="text-[10px] text-amber-400/50 bg-amber-400/10 px-2 py-0.5 rounded-full font-semibold">
-                    {hotGames.length} games
+                    {hotGames.length} {t("lobby.games")}
                   </span>
                 </div>
                 <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 sm:gap-3">
@@ -123,7 +125,7 @@ export default function Lobby() {
                   type="text"
                   value={localSearch}
                   onChange={(e) => handleSearch(e.target.value)}
-                  placeholder="Search games..."
+                  placeholder={t("nav.search")}
                   className="w-full h-10 pl-10 pr-10 rounded-xl bg-white/5 border border-white/10 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-amber-500/40 transition-colors"
                 />
                 {localSearch && (
@@ -157,6 +159,7 @@ function GameCard({ game, vendorName }: { game: Game; vendorName?: string }) {
   const [showDetail, setShowDetail] = useState(false);
   const store = useLobbyStore();
   const vendor = store.vendors.find((v) => v.vendorCode === game.vendorCode) || null;
+  const t = useT();
 
   return (
     <>
@@ -166,7 +169,7 @@ function GameCard({ game, vendorName }: { game: Game; vendorName?: string }) {
       >
         <div className="absolute top-1.5 left-1.5 z-10 flex flex-col gap-1">
           {game.isNew && (
-            <Badge className="bg-green-500/90 text-white text-[9px] font-bold border-none px-1 py-0 h-4">NEW</Badge>
+            <Badge className="bg-green-500/90 text-white text-[9px] font-bold border-none px-1 py-0 h-4">{t("lobby.new")}</Badge>
           )}
         </div>
 

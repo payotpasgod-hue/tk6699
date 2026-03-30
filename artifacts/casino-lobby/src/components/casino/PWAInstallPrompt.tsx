@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Download, X, Smartphone } from "lucide-react";
+import { useT } from "@/lib/i18n";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -11,6 +12,7 @@ export function PWAInstallPrompt() {
   const [showBanner, setShowBanner] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
   const [showIOSGuide, setShowIOSGuide] = useState(false);
+  const t = useT();
 
   useEffect(() => {
     const dismissed = sessionStorage.getItem("pwa-dismissed");
@@ -68,7 +70,7 @@ export function PWAInstallPrompt() {
           <div className="flex items-start justify-between mb-3">
             <div className="flex items-center gap-2">
               <Smartphone className="w-5 h-5 text-amber-400" />
-              <span className="text-sm font-bold text-white">Install TK6699 App</span>
+              <span className="text-sm font-bold text-white">{t("pwa.installApp")}</span>
             </div>
             <button onClick={dismiss} className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center">
               <X className="w-3.5 h-3.5 text-white/50" />
@@ -77,22 +79,22 @@ export function PWAInstallPrompt() {
           <div className="space-y-2 text-xs text-white/60">
             <p className="flex items-center gap-2">
               <span className="w-5 h-5 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-400 font-bold text-[10px]">1</span>
-              Tap the <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-white/10 rounded text-white/80">
+              {t("pwa.step1")} <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-white/10 rounded text-white/80">
                 <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13"/></svg>
-                Share
-              </span> button
+                {t("pwa.share")}
+              </span> {t("pwa.step1end")}
             </p>
             <p className="flex items-center gap-2">
               <span className="w-5 h-5 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-400 font-bold text-[10px]">2</span>
-              Scroll down and tap <span className="px-1.5 py-0.5 bg-white/10 rounded text-white/80">Add to Home Screen</span>
+              {t("pwa.step2")} <span className="px-1.5 py-0.5 bg-white/10 rounded text-white/80">{t("pwa.addToHomeScreen")}</span>
             </p>
             <p className="flex items-center gap-2">
               <span className="w-5 h-5 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-400 font-bold text-[10px]">3</span>
-              Tap <span className="px-1.5 py-0.5 bg-white/10 rounded text-white/80">Add</span> to install
+              {t("pwa.step3")} <span className="px-1.5 py-0.5 bg-white/10 rounded text-white/80">{t("pwa.add")}</span> {t("pwa.step3end")}
             </p>
           </div>
           <button onClick={dismiss} className="w-full mt-3 py-2 rounded-lg bg-amber-500/20 text-amber-400 text-xs font-semibold">
-            Got it!
+            {t("pwa.gotIt")}
           </button>
         </div>
       </div>
@@ -107,15 +109,15 @@ export function PWAInstallPrompt() {
             <Download className="w-5 h-5 text-white" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-white">Install TK6699</p>
-            <p className="text-[11px] text-white/40">Add to home screen for quick access</p>
+            <p className="text-sm font-bold text-white">{t("pwa.install")}</p>
+            <p className="text-[11px] text-white/40">{t("pwa.addHomeScreen")}</p>
           </div>
           <div className="flex items-center gap-1.5">
             <button
               onClick={handleInstall}
               className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 text-black text-xs font-bold"
             >
-              Install
+              {t("pwa.installBtn")}
             </button>
             <button onClick={dismiss} className="w-7 h-7 rounded-lg bg-white/5 flex items-center justify-center">
               <X className="w-3.5 h-3.5 text-white/40" />

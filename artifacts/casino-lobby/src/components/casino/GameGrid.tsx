@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useLobbyStore } from "@/store/use-lobby-store";
 import { GameDetailModal } from "./GameDetailModal";
+import { useT } from "@/lib/i18n";
 import type { Game } from "@workspace/api-client-react";
 
 const GAMES_PER_PAGE = 30;
@@ -16,6 +17,7 @@ interface GameGridProps {
 export function GameGrid({ isLoading, loadProgress }: GameGridProps) {
   const store = useLobbyStore();
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
+  const t = useT();
 
   const filteredGames = useMemo(() => {
     return store.games.filter((game) => {
@@ -64,9 +66,9 @@ export function GameGrid({ isLoading, loadProgress }: GameGridProps) {
         <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center mb-5">
           <Gamepad2 className="w-8 h-8 text-white/10" />
         </div>
-        <h3 className="text-lg font-display font-bold text-white mb-2">No Games Loaded</h3>
+        <h3 className="text-lg font-display font-bold text-white mb-2">{t("grid.noGamesLoaded")}</h3>
         <p className="text-white/30 text-sm max-w-md">
-          Games will appear here once the cache is loaded.
+          {t("grid.gamesWillAppear")}
         </p>
       </div>
     );
@@ -78,9 +80,9 @@ export function GameGrid({ isLoading, loadProgress }: GameGridProps) {
         <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center mb-5">
           <AlertTriangle className="w-8 h-8 text-white/10" />
         </div>
-        <h3 className="text-lg font-display font-bold text-white mb-2">No Matches</h3>
+        <h3 className="text-lg font-display font-bold text-white mb-2">{t("grid.noMatches")}</h3>
         <p className="text-white/30 text-sm max-w-md">
-          No games match your current filters.
+          {t("grid.noGamesMatch")}
         </p>
       </div>
     );
@@ -90,7 +92,7 @@ export function GameGrid({ isLoading, loadProgress }: GameGridProps) {
     <div className="mb-20">
       <div className="flex items-center justify-between mb-3 px-1">
         <p className="text-xs text-white/30">
-          <span className="text-white/60 font-semibold">{filteredGames.length}</span> games
+          <span className="text-white/60 font-semibold">{filteredGames.length}</span> {t("lobby.games")}
         </p>
         {totalPages > 1 && (
           <div className="flex items-center gap-1.5">
@@ -131,10 +133,10 @@ export function GameGrid({ isLoading, loadProgress }: GameGridProps) {
             >
               <div className="absolute top-1.5 left-1.5 z-10 flex flex-col gap-1">
                 {game.isNew && (
-                  <Badge className="bg-green-500/90 text-white text-[9px] font-bold border-none px-1 py-0 h-4">NEW</Badge>
+                  <Badge className="bg-green-500/90 text-white text-[9px] font-bold border-none px-1 py-0 h-4">{t("lobby.new")}</Badge>
                 )}
                 {game.underMaintenance && (
-                  <Badge variant="destructive" className="text-[9px] font-bold border-none px-1 py-0 h-4">DOWN</Badge>
+                  <Badge variant="destructive" className="text-[9px] font-bold border-none px-1 py-0 h-4">{t("lobby.down")}</Badge>
                 )}
               </div>
 
@@ -182,7 +184,7 @@ export function GameGrid({ isLoading, loadProgress }: GameGridProps) {
             disabled={store.gamesPage <= 1}
             className="bg-white/5 border-white/5 text-xs"
           >
-            <ChevronLeft className="w-3.5 h-3.5 mr-1" /> Prev
+            <ChevronLeft className="w-3.5 h-3.5 mr-1" /> {t("grid.prev")}
           </Button>
 
           {Array.from({ length: Math.min(5, totalPages) }).map((_, i) => {
@@ -221,7 +223,7 @@ export function GameGrid({ isLoading, loadProgress }: GameGridProps) {
             disabled={store.gamesPage >= totalPages}
             className="bg-white/5 border-white/5 text-xs"
           >
-            Next <ChevronRight className="w-3.5 h-3.5 ml-1" />
+            {t("grid.next")} <ChevronRight className="w-3.5 h-3.5 ml-1" />
           </Button>
         </div>
       )}

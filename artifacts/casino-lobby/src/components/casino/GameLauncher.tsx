@@ -2,10 +2,12 @@ import { useEffect } from "react";
 import { X, Maximize2, Minimize2 } from "lucide-react";
 import { useLobbyStore } from "@/store/use-lobby-store";
 import { useState } from "react";
+import { useT } from "@/lib/i18n";
 
 export function GameLauncher() {
   const { launchedGameUrl, launchedGameInfo, closeGame } = useLobbyStore();
   const [isLoaded, setIsLoaded] = useState(false);
+  const t = useT();
 
   useEffect(() => {
     if (launchedGameUrl) {
@@ -38,7 +40,7 @@ export function GameLauncher() {
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 text-xs font-semibold transition-colors shrink-0"
         >
           <X className="w-3.5 h-3.5" />
-          Close
+          {t("game.close")}
         </button>
       </div>
 
@@ -47,7 +49,7 @@ export function GameLauncher() {
           <div className="absolute inset-0 flex items-center justify-center bg-black z-10">
             <div className="flex flex-col items-center">
               <div className="w-10 h-10 border-3 border-amber-500 border-t-transparent rounded-full animate-spin mb-3" />
-              <p className="text-white/40 text-sm">Loading Game...</p>
+              <p className="text-white/40 text-sm">{t("game.loadingGame")}</p>
             </div>
           </div>
         )}

@@ -1,18 +1,20 @@
 import { useState, useEffect } from "react";
 import { X, Gift, Sparkles, Crown, Coins, Star, ChevronRight, Zap } from "lucide-react";
-
-const BONUS_ITEMS = [
-  { label: "Registration Bonus", amount: 19, tag: "FREE", tagColor: "bg-green-500", desc: "Just Register — No Deposit!" },
-  { label: "1st Deposit Bonus", amount: 156, tag: "100%", tagColor: "bg-amber-500", desc: "100% Match on First Deposit" },
-  { label: "2nd Deposit Bonus", amount: 100, tag: "50%", tagColor: "bg-orange-500", desc: "50% Match on Second Deposit" },
-  { label: "3rd Deposit Bonus", amount: 100, tag: "25%", tagColor: "bg-purple-500", desc: "25% Match on Third Deposit" },
-  { label: "Daily Cashback", amount: 100, tag: "10%", tagColor: "bg-blue-500", desc: "Up to 10% Daily Cashback" },
-  { label: "VIP Weekly Bonus", amount: 100, tag: "VIP", tagColor: "bg-red-500", desc: "Exclusive VIP Rewards" },
-];
+import { useT } from "@/lib/i18n";
 
 export function WelcomeBonusModal({ onClose, onRegister }: { onClose: () => void; onRegister: () => void }) {
   const [visible, setVisible] = useState(false);
   const [countUp, setCountUp] = useState(0);
+  const t = useT();
+
+  const BONUS_ITEMS = [
+    { label: t("welcome.registrationLabel"), amount: 19, tag: t("register.free"), tagColor: "bg-green-500", desc: t("welcome.registrationDesc") },
+    { label: t("welcome.firstDeposit"), amount: 156, tag: "100%", tagColor: "bg-amber-500", desc: t("welcome.firstDepositDesc") },
+    { label: t("welcome.secondDeposit"), amount: 100, tag: "50%", tagColor: "bg-orange-500", desc: t("welcome.secondDepositDesc") },
+    { label: t("welcome.thirdDeposit"), amount: 100, tag: "25%", tagColor: "bg-purple-500", desc: t("welcome.thirdDepositDesc") },
+    { label: t("welcome.dailyCashback"), amount: 100, tag: "10%", tagColor: "bg-blue-500", desc: t("welcome.dailyCashbackDesc") },
+    { label: t("welcome.vipWeekly"), amount: 100, tag: "VIP", tagColor: "bg-red-500", desc: t("welcome.vipWeeklyDesc") },
+  ];
 
   useEffect(() => {
     setTimeout(() => setVisible(true), 50);
@@ -68,14 +70,14 @@ export function WelcomeBonusModal({ onClose, onRegister }: { onClose: () => void
                 </div>
               </div>
             </div>
-            <h2 className="text-lg sm:text-xl font-bold text-white mb-1">Welcome Bonus Package</h2>
+            <h2 className="text-lg sm:text-xl font-bold text-white mb-1">{t("welcome.title")}</h2>
             <div className="flex items-baseline justify-center gap-1">
               <span className="text-3xl sm:text-4xl font-black bg-gradient-to-r from-amber-400 via-yellow-300 to-orange-400 bg-clip-text text-transparent">
-                ৳{countUp}
+                {"\u09F3"}{countUp}
               </span>
               <span className="text-base sm:text-lg font-bold text-amber-400/60">BDT</span>
             </div>
-            <p className="text-xs text-white/40 mt-1">Instant Bonus Available</p>
+            <p className="text-xs text-white/40 mt-1">{t("welcome.instantBonus")}</p>
           </div>
 
           <div className="px-3 sm:px-4 pb-3 space-y-1.5 max-h-[45vh] overflow-y-auto">
@@ -106,7 +108,7 @@ export function WelcomeBonusModal({ onClose, onRegister }: { onClose: () => void
                   </div>
                   <p className="text-[10px] sm:text-xs text-white/40 mt-0.5">{item.desc}</p>
                 </div>
-                <span className="shrink-0 text-sm sm:text-base font-bold text-amber-400">৳{item.amount}</span>
+                <span className="shrink-0 text-sm sm:text-base font-bold text-amber-400">{"\u09F3"}{item.amount}</span>
               </div>
             ))}
           </div>
@@ -117,11 +119,11 @@ export function WelcomeBonusModal({ onClose, onRegister }: { onClose: () => void
               className="w-full py-3 sm:py-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-black font-bold text-sm sm:text-base shadow-lg shadow-amber-500/30 flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
             >
               <Gift className="w-4 h-4 sm:w-5 sm:h-5" />
-              Register & Get ৳19 FREE
+              {t("welcome.registerFree")}
               <ChevronRight className="w-4 h-4" />
             </button>
             <p className="text-center text-[10px] sm:text-xs text-white/30">
-              ৳19 Registration Bonus — No Deposit Required!
+              {t("welcome.registrationBonus")}
             </p>
           </div>
         </div>

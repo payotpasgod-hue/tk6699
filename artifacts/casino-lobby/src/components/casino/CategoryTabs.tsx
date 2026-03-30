@@ -1,19 +1,21 @@
 import { useLobbyStore } from "@/store/use-lobby-store";
 import { clsx } from "clsx";
 import { Flame, Tv, Gamepad2, Fish, Zap, Dice1, LayoutGrid } from "lucide-react";
-
-const CATEGORIES = [
-  { id: "ALL", label: "All", icon: LayoutGrid },
-  { id: "HOT", label: "Popular", icon: Flame },
-  { id: "2", label: "Slots", icon: Gamepad2 },
-  { id: "1", label: "Live Casino", icon: Tv },
-  { id: "4", label: "Fishing", icon: Fish },
-  { id: "3", label: "Crash", icon: Zap },
-  { id: "6", label: "Table", icon: Dice1 },
-];
+import { useT } from "@/lib/i18n";
 
 export function CategoryTabs() {
   const { gameTypeFilter, setFilters } = useLobbyStore();
+  const t = useT();
+
+  const CATEGORIES = [
+    { id: "ALL", label: t("cat.all"), icon: LayoutGrid },
+    { id: "HOT", label: t("cat.popular"), icon: Flame },
+    { id: "2", label: t("cat.slots"), icon: Gamepad2 },
+    { id: "1", label: t("cat.liveCasino"), icon: Tv },
+    { id: "4", label: t("cat.fishing"), icon: Fish },
+    { id: "3", label: t("cat.crash"), icon: Zap },
+    { id: "6", label: t("cat.table"), icon: Dice1 },
+  ];
 
   const handleTab = (id: string) => {
     setFilters({ type: id, vendor: "ALL", search: "" });
