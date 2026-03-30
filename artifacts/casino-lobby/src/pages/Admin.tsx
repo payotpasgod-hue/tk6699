@@ -106,7 +106,7 @@ interface AdminWithdrawal {
 }
 
 interface SystemHealth {
-  relay: { status: string; latency: number; endpoint: string };
+  oroplayApi: { status: string; latency: number; endpoint: string };
   database: { status: string; latency: number };
   cache: { exists: boolean; size: number; age: number; totalGames: number; totalVendors: number };
   errors: { total: number; lastHour: number };
@@ -523,20 +523,20 @@ export default function Admin() {
                       <span className="text-sm font-semibold text-white">Relay VPS</span>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <div className={`w-2 h-2 rounded-full ${statusDot(health.relay.status)}`} />
-                      <span className={`text-xs font-semibold ${statusColor(health.relay.status)}`}>
-                        {health.relay.status.toUpperCase()}
+                      <div className={`w-2 h-2 rounded-full ${statusDot(health.oroplayApi?.status || "offline")}`} />
+                      <span className={`text-xs font-semibold ${statusColor(health.oroplayApi?.status || "offline")}`}>
+                        {(health.oroplayApi?.status || "offline").toUpperCase()}
                       </span>
                     </div>
                   </div>
                   <div className="space-y-1 text-xs text-white/40">
                     <div className="flex justify-between">
                       <span>Latency</span>
-                      <span className="text-white/60">{health.relay.latency}ms</span>
+                      <span className="text-white/60">{health.oroplayApi?.latency || 0}ms</span>
                     </div>
                     <div className="flex justify-between">
                       <span>Endpoint</span>
-                      <span className="text-white/60 truncate max-w-[180px]">{health.relay.endpoint}</span>
+                      <span className="text-white/60 truncate max-w-[180px]">{health.oroplayApi?.endpoint || "N/A"}</span>
                     </div>
                   </div>
                 </div>
@@ -548,20 +548,20 @@ export default function Admin() {
                       <span className="text-sm font-semibold text-white">Database</span>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <div className={`w-2 h-2 rounded-full ${statusDot(health.database.status)}`} />
-                      <span className={`text-xs font-semibold ${statusColor(health.database.status)}`}>
-                        {health.database.status.toUpperCase()}
+                      <div className={`w-2 h-2 rounded-full ${statusDot(health.database?.status || "offline")}`} />
+                      <span className={`text-xs font-semibold ${statusColor(health.database?.status || "offline")}`}>
+                        {(health.database?.status || "offline").toUpperCase()}
                       </span>
                     </div>
                   </div>
                   <div className="space-y-1 text-xs text-white/40">
                     <div className="flex justify-between">
                       <span>Latency</span>
-                      <span className="text-white/60">{health.database.latency}ms</span>
+                      <span className="text-white/60">{health.database?.latency || 0}ms</span>
                     </div>
                     <div className="flex justify-between">
                       <span>Memory</span>
-                      <span className="text-white/60">{health.memory}MB</span>
+                      <span className="text-white/60">{health.memory || 0}MB</span>
                     </div>
                   </div>
                 </div>
@@ -572,17 +572,17 @@ export default function Admin() {
                       <Server className="w-4 h-4 text-amber-400" />
                       <span className="text-sm font-semibold text-white">Server</span>
                     </div>
-                    <span className="text-xs text-white/30">Up {fmtUptime(health.uptime)}</span>
+                    <span className="text-xs text-white/30">Up {fmtUptime(health.uptime || 0)}</span>
                   </div>
                   <div className="space-y-1 text-xs text-white/40">
                     <div className="flex justify-between">
                       <span>Tracked Requests</span>
-                      <span className="text-white/60">{health.requests.tracked}</span>
+                      <span className="text-white/60">{health.requests?.tracked || 0}</span>
                     </div>
                     <div className="flex justify-between">
                       <span>Errors (1h)</span>
-                      <span className={health.errors.lastHour > 0 ? "text-red-400 font-semibold" : "text-white/60"}>
-                        {health.errors.lastHour}
+                      <span className={(health.errors?.lastHour || 0) > 0 ? "text-red-400 font-semibold" : "text-white/60"}>
+                        {health.errors?.lastHour || 0}
                       </span>
                     </div>
                   </div>
@@ -602,10 +602,10 @@ export default function Admin() {
                   </Button>
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3 text-xs">
-                  <div><span className="text-white/30">Games</span><p className="text-white font-bold">{health.cache.totalGames}</p></div>
-                  <div><span className="text-white/30">Vendors</span><p className="text-white font-bold">{health.cache.totalVendors}</p></div>
-                  <div><span className="text-white/30">Size</span><p className="text-white font-bold">{health.cache.size}KB</p></div>
-                  <div><span className="text-white/30">Age</span><p className="text-white font-bold">{health.cache.age}min</p></div>
+                  <div><span className="text-white/30">Games</span><p className="text-white font-bold">{health.cache?.totalGames || 0}</p></div>
+                  <div><span className="text-white/30">Vendors</span><p className="text-white font-bold">{health.cache?.totalVendors || 0}</p></div>
+                  <div><span className="text-white/30">Size</span><p className="text-white font-bold">{health.cache?.size || 0}KB</p></div>
+                  <div><span className="text-white/30">Age</span><p className="text-white font-bold">{health.cache?.age || 0}min</p></div>
                 </div>
               </div>
             )}
