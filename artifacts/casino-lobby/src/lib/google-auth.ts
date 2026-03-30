@@ -8,9 +8,6 @@ export function openGoogleSignIn(): Promise<string> {
   return new Promise((resolve, reject) => {
     const redirectUri = window.location.origin;
     const nonce = Math.random().toString(36).slice(2);
-    const state = Math.random().toString(36).slice(2);
-
-    sessionStorage.setItem("google_oauth_state", state);
 
     const params = new URLSearchParams({
       client_id: GOOGLE_CLIENT_ID,
@@ -18,7 +15,6 @@ export function openGoogleSignIn(): Promise<string> {
       response_type: "id_token",
       scope: "openid email profile",
       nonce,
-      state,
       prompt: "select_account",
     });
 
@@ -35,49 +31,48 @@ export function openGoogleSignIn(): Promise<string> {
     );
 
     if (!popup) {
+      localStorage.setItem("tk6699-google-pending", "1");
       window.location.href = url;
       reject(new Error("Popup blocked"));
       return;
     }
 
-    const interval = setInterval(() => {
-      try {
-        if (popup.closed) {
-          clearInterval(interval);
-          reject(new Error("Sign-in cancelled"));
-          return;
-        }
+    let settled = false;
 
-        const popupUrl = popup.location.href;
-        if (popupUrl.startsWith(redirectUri)) {
-          clearInterval(interval);
-          popup.close();
+    const onMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      if (event.data?.type !== "google-auth-result") return;
 
-          const hash = popup.location.hash.substring(1);
-          const hashParams = new URLSearchParams(hash);
-          const idToken = hashParams.get("id_token");
-          const returnedState = hashParams.get("state");
-          const savedState = sessionStorage.getItem("google_oauth_state");
+      settled = true;
+      window.removeEventListener("message", onMessage);
+      clearInterval(closedCheck);
 
-          if (returnedState !== savedState) {
-            reject(new Error("State mismatch"));
-            return;
-          }
-
-          if (idToken) {
-            resolve(idToken);
-          } else {
-            reject(new Error("No token received"));
-          }
-        }
-      } catch {
+      if (event.data.idToken) {
+        resolve(event.data.idToken);
+      } else {
+        reject(new Error(event.data.error || "No token received"));
       }
-    }, 200);
+    };
+
+    window.addEventListener("message", onMessage);
+
+    const closedCheck = setInterval(() => {
+      if (popup.closed && !settled) {
+        settled = true;
+        clearInterval(closedCheck);
+        window.removeEventListener("message", onMessage);
+        reject(new Error("Sign-in cancelled"));
+      }
+    }, 500);
 
     setTimeout(() => {
-      clearInterval(interval);
-      if (!popup.closed) popup.close();
-      reject(new Error("Sign-in timed out"));
+      if (!settled) {
+        settled = true;
+        clearInterval(closedCheck);
+        window.removeEventListener("message", onMessage);
+        if (!popup.closed) popup.close();
+        reject(new Error("Sign-in timed out"));
+      }
     }, 120000);
   });
 }
@@ -88,15 +83,22 @@ export function handleGoogleRedirectResult(): string | null {
 
   const hashParams = new URLSearchParams(hash.substring(1));
   const idToken = hashParams.get("id_token");
-  const returnedState = hashParams.get("state");
-  const savedState = sessionStorage.getItem("google_oauth_state");
 
-  if (returnedState && savedState && returnedState !== savedState) return null;
+  if (!idToken) return null;
 
-  if (idToken) {
-    window.history.replaceState(null, "", window.location.pathname + window.location.search);
-    return idToken;
+  if (window.opener && window.opener !== window) {
+    try {
+      window.opener.postMessage(
+        { type: "google-auth-result", idToken },
+        window.location.origin
+      );
+      window.close();
+      return null;
+    } catch {
+    }
   }
 
-  return null;
+  window.history.replaceState(null, "", window.location.pathname + window.location.search);
+  localStorage.removeItem("tk6699-google-pending");
+  return idToken;
 }
