@@ -472,6 +472,10 @@ function verifyCallbackAuth(req: Request, res: Response): boolean {
   return true;
 }
 
+router.get("/balance", (_req: Request, res: Response) => {
+  res.json({ success: true, message: "Balance callback endpoint active", errorCode: 0 });
+});
+
 router.post("/balance", async (req: Request, res: Response) => {
   if (!verifyCallbackAuth(req, res)) return;
   try {
@@ -494,6 +498,10 @@ router.post("/balance", async (req: Request, res: Response) => {
     req.log.error({ err }, "Balance callback error");
     res.status(500).json({ success: false, errorCode: 500, message: "Internal error" });
   }
+});
+
+router.get("/transaction", (_req: Request, res: Response) => {
+  res.json({ success: true, message: "Transaction callback endpoint active", errorCode: 0 });
 });
 
 router.post("/transaction", async (req: Request, res: Response) => {
@@ -622,6 +630,10 @@ router.post("/transaction", async (req: Request, res: Response) => {
     req.log.error({ err }, "Transaction callback error");
     res.status(500).json({ success: false, errorCode: 500, message: "Internal error" });
   }
+});
+
+router.get("/batch-transactions", (_req: Request, res: Response) => {
+  res.json({ success: true, message: "Batch transactions callback endpoint active", errorCode: 0 });
 });
 
 router.post("/batch-transactions", async (req: Request, res: Response) => {
