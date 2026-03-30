@@ -1,4 +1,4 @@
-modules = ["nodejs-24"]
+modules = ["nodejs-24", "postgresql-16"]
 
 [[artifacts]]
 id = "artifacts/api-server"
@@ -31,3 +31,6 @@ timeoutMs = 20000
 OROPLAY_CLIENT_ID = "tk6699"
 OROPLAY_API_ENDPOINT = "https://bs.sxvwlkohlv.com/api/v2"
 VITE_GOOGLE_CLIENT_ID = "463887510261-v54ueq9n9c482tjrco87s5tq8e9p93s9.apps.googleusercontent.com"
+
+[nix]
+channel = "stable-25_05"
