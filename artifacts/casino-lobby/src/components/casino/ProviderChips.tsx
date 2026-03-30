@@ -66,14 +66,21 @@ function ProviderLogo({ vendorCode, name }: { vendorCode: string; name: string }
 }
 
 export function ProviderChips() {
-  const { vendors, games, selectedVendorCode, setFilters } = useLobbyStore();
+  const { vendors, games, selectedVendorCode, gameTypeFilter, setFilters } = useLobbyStore();
 
   if (vendors.length === 0) return null;
 
-  const vendorGameCounts = vendors.reduce<Record<string, number>>((acc, v) => {
-    acc[v.vendorCode] = games.filter((g) => g.vendorCode === v.vendorCode).length;
+  const filteredVendors = vendors.filter((v) => {
+    if (gameTypeFilter === "ALL" || gameTypeFilter === "HOT") return true;
+    return v.type.toString() === gameTypeFilter;
+  });
+
+  const vendorGameCounts = filteredVendors.reduce<Record<string, number>>((acc, v) => {
+    acc[v.vendorCode] = games.filter((g) => g.vendorCode === v.vendorCode && g.gameCode !== "lobby").length;
     return acc;
   }, {});
+
+  const totalGames = Object.values(vendorGameCounts).reduce((a, b) => a + b, 0);
 
   return (
     <div className="mb-5" id="providers-section">
@@ -91,10 +98,10 @@ export function ProviderChips() {
               : "bg-white/[0.03] text-white/30 border-white/5 hover:bg-white/5 hover:text-white/50"
           )}
         >
-          All ({games.length})
+          All ({totalGames})
         </button>
 
-        {vendors.map((vendor) => {
+        {filteredVendors.map((vendor) => {
           const count = vendorGameCounts[vendor.vendorCode] || 0;
           if (count === 0) return null;
 

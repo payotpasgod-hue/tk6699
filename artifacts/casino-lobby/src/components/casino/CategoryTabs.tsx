@@ -1,6 +1,6 @@
 import { useLobbyStore } from "@/store/use-lobby-store";
 import { clsx } from "clsx";
-import { Flame, Tv, Gamepad2, Fish, Zap, Dice1, LayoutGrid, Trophy, Star } from "lucide-react";
+import { Flame, Tv, Gamepad2, Fish, Zap, Dice1, LayoutGrid } from "lucide-react";
 
 const CATEGORIES = [
   { id: "ALL", label: "All", icon: LayoutGrid },
@@ -15,6 +15,10 @@ const CATEGORIES = [
 export function CategoryTabs() {
   const { gameTypeFilter, setFilters } = useLobbyStore();
 
+  const handleTab = (id: string) => {
+    setFilters({ type: id, vendor: "ALL", search: "" });
+  };
+
   return (
     <div className="w-full overflow-x-auto scrollbar-hide bg-[#0d1220]/80 border-b border-white/5">
       <div className="max-w-[1400px] mx-auto px-3">
@@ -26,7 +30,7 @@ export function CategoryTabs() {
             return (
               <button
                 key={cat.id}
-                onClick={() => setFilters({ type: cat.id })}
+                onClick={() => handleTab(cat.id)}
                 className={clsx(
                   "flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition-all duration-200 whitespace-nowrap",
                   isActive

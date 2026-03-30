@@ -19,6 +19,7 @@ export function GameGrid({ isLoading, loadProgress }: GameGridProps) {
 
   const filteredGames = useMemo(() => {
     return store.games.filter((game) => {
+      if (game.gameCode === "lobby") return false;
       if (store.selectedVendorCode !== "ALL" && game.vendorCode !== store.selectedVendorCode) return false;
       if (store.searchQuery && !game.gameName.toLowerCase().includes(store.searchQuery.toLowerCase())) return false;
       if (store.gameTypeFilter !== "ALL" && store.gameTypeFilter !== "HOT") {

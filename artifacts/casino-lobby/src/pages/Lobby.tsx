@@ -10,16 +10,17 @@ import { BottomNav } from "@/components/casino/BottomNav";
 import { useLobbyStore } from "@/store/use-lobby-store";
 import { useAuthStore } from "@/store/use-auth-store";
 import { apiRequest } from "@/lib/api";
-import { isBDVendor, isBDHotGame, BD_FEATURED_VENDORS } from "@/lib/bd-games";
-import { Flame, Sparkles, Star, Trophy, Zap, Fish, Tv } from "lucide-react";
+import { isBDVendor, isBDHotGame } from "@/lib/bd-games";
+import { Flame, Search, X } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 export default function Lobby() {
   const store = useLobbyStore();
-  const { user, updateUser } = useAuthStore();
-  const [isLoadingGames, setIsLoadingGames] = useState(false);
-  const [loadProgress, setLoadProgress] = useState({ current: 0, total: 0 });
+  const { updateUser } = useAuthStore();
+  const [isLoadingGames] = useState(false);
+  const [loadProgress] = useState({ current: 0, total: 0 });
+  const [localSearch, setLocalSearch] = useState("");
 
   const loadFromCache = useCallback(async () => {
     try {
@@ -29,7 +30,7 @@ export default function Lobby() {
       try { data = JSON.parse(text); } catch { return false; }
       if (data.success && data.vendors && data.games) {
         const bdVendors = data.vendors.filter((v: any) => isBDVendor(v.vendorCode));
-        const bdGames = data.games.filter((g: any) => isBDVendor(g.vendorCode));
+        const bdGames = data.games.filter((g: any) => isBDVendor(g.vendorCode) && g.gameCode !== "lobby");
         store.setVendors(bdVendors);
         store.setGames(bdGames);
         store.setCacheTimestamp(data.timestamp);
@@ -53,198 +54,89 @@ export default function Lobby() {
     } catch {}
   };
 
-  const showBrowseMode = store.searchQuery.length > 0 || store.selectedVendorCode !== "ALL";
+  const isHomeTab = store.gameTypeFilter === "ALL" || store.gameTypeFilter === "HOT";
+  const isBrowsing = !isHomeTab || store.searchQuery.length > 0 || store.selectedVendorCode !== "ALL";
 
   const hotGames = useMemo(() => {
-    const hot = store.games.filter((g) => {
-      if (store.gameTypeFilter !== "ALL" && store.gameTypeFilter !== "HOT") {
-        const vendor = store.vendors.find((v) => v.vendorCode === g.vendorCode);
-        if (vendor && vendor.type.toString() !== store.gameTypeFilter) return false;
-      }
-      return isBDHotGame(g.vendorCode, g.gameCode);
-    });
+    const hot = store.games.filter((g) => isBDHotGame(g.vendorCode, g.gameCode));
 
-    if (hot.length >= 5) return hot;
+    if (hot.length >= 10) return hot;
 
-    const popularVendors = ["slot-jili", "slot-pgsoft", "slot-pragmatic", "mini-aviator", "mini-spribe", "slot-fachai"];
-    const fallback = store.games.filter((g) => {
-      if (store.gameTypeFilter !== "ALL" && store.gameTypeFilter !== "HOT") {
-        const vendor = store.vendors.find((v) => v.vendorCode === g.vendorCode);
-        if (vendor && vendor.type.toString() !== store.gameTypeFilter) return false;
-      }
-      return popularVendors.includes(g.vendorCode) && g.gameCode !== "lobby";
-    });
-
+    const popularVendors = ["slot-jili", "slot-pgsoft", "slot-pragmatic", "mini-aviator", "mini-spribe", "slot-fachai", "mini-inout"];
     const merged = [...hot];
     const keys = new Set(hot.map((g) => `${g.vendorCode}::${g.gameCode}`));
-    for (const g of fallback) {
-      if (!keys.has(`${g.vendorCode}::${g.gameCode}`)) {
+    for (const g of store.games) {
+      if (!keys.has(`${g.vendorCode}::${g.gameCode}`) && popularVendors.includes(g.vendorCode)) {
         merged.push(g);
         keys.add(`${g.vendorCode}::${g.gameCode}`);
       }
-      if (merged.length >= 20) break;
+      if (merged.length >= 30) break;
     }
     return merged;
-  }, [store.games, store.gameTypeFilter, store.vendors]);
+  }, [store.games]);
 
-  const newGames = useMemo(() => {
-    return store.games
-      .filter((g) => {
-        if (!g.isNew || g.gameCode === "lobby") return false;
-        if (store.gameTypeFilter !== "ALL" && store.gameTypeFilter !== "HOT") {
-          const vendor = store.vendors.find((v) => v.vendorCode === g.vendorCode);
-          if (vendor && vendor.type.toString() !== store.gameTypeFilter) return false;
-        }
-        return true;
-      })
-      .slice(0, 20);
-  }, [store.games, store.gameTypeFilter, store.vendors]);
-
-  const crashGames = useMemo(() => {
-    return store.games
-      .filter((g) => {
-        if (g.gameCode === "lobby") return false;
-        const vendor = store.vendors.find((v) => v.vendorCode === g.vendorCode);
-        return vendor && vendor.type === 3;
-      })
-      .slice(0, 20);
-  }, [store.games, store.vendors]);
-
-  const fishingGames = useMemo(() => {
-    return store.games
-      .filter((g) => {
-        if (g.gameCode === "lobby") return false;
-        const vendor = store.vendors.find((v) => v.vendorCode === g.vendorCode);
-        return vendor && vendor.type === 4;
-      })
-      .slice(0, 20);
-  }, [store.games, store.vendors]);
-
-  const liveCasinoGames = useMemo(() => {
-    return store.games
-      .filter((g) => {
-        if (g.gameCode === "lobby") return false;
-        const vendor = store.vendors.find((v) => v.vendorCode === g.vendorCode);
-        return vendor && vendor.type === 1;
-      })
-      .slice(0, 20);
-  }, [store.games, store.vendors]);
-
-  const featuredProviderSections = useMemo(() => {
-    if (store.gameTypeFilter !== "ALL" && store.gameTypeFilter !== "HOT") {
-      const typeId = store.gameTypeFilter;
-      const vendorGames: Record<string, typeof store.games> = {};
-      for (const game of store.games) {
-        if (game.gameCode === "lobby") continue;
-        const vendor = store.vendors.find((v) => v.vendorCode === game.vendorCode);
-        if (!vendor || vendor.type.toString() !== typeId) continue;
-        if (!vendorGames[game.vendorCode]) vendorGames[game.vendorCode] = [];
-        if (vendorGames[game.vendorCode].length < 20) {
-          vendorGames[game.vendorCode].push(game);
-        }
-      }
-
-      return Object.entries(vendorGames)
-        .filter(([, games]) => games.length > 0)
-        .sort((a, b) => b[1].length - a[1].length)
-        .slice(0, 6)
-        .map(([vendorCode, games]) => {
-          const vendor = store.vendors.find((v) => v.vendorCode === vendorCode);
-          return { vendorCode, name: vendor?.name || vendorCode, games };
-        });
-    }
-
-    return BD_FEATURED_VENDORS.map((vendorCode) => {
-      const vendor = store.vendors.find((v) => v.vendorCode === vendorCode);
-      if (!vendor) return null;
-      const games = store.games
-        .filter((g) => g.vendorCode === vendorCode && g.gameCode !== "lobby")
-        .slice(0, 20);
-      if (games.length === 0) return null;
-      return { vendorCode, name: vendor.name, games };
-    }).filter(Boolean) as { vendorCode: string; name: string; games: typeof store.games }[];
-  }, [store.games, store.vendors, store.gameTypeFilter]);
-
-  const showCategorySections = store.gameTypeFilter === "ALL" || store.gameTypeFilter === "HOT";
+  const handleSearch = (val: string) => {
+    setLocalSearch(val);
+    store.setFilters({ search: val });
+  };
 
   return (
     <div className="min-h-screen bg-[#070b14] text-white pb-20 sm:pb-8 selection:bg-amber-500/30">
       <Navbar />
       <CategoryTabs />
 
-      <main className="max-w-[1400px] mx-auto px-3 sm:px-4 pt-4">
-        <GameLauncher />
+      <GameLauncher />
 
-        {!showBrowseMode && (
+      <main className="max-w-[1400px] mx-auto px-3 sm:px-4 pt-4">
+        {isHomeTab && !isBrowsing && (
           <>
             <PromoBanner />
 
             {hotGames.length > 0 && (
-              <GameRow
-                title="Hot in Bangladesh"
-                icon={<Flame className="w-4 h-4 text-orange-400" />}
-                games={hotGames}
-                accentColor="text-white"
-              />
+              <div className="mb-6">
+                <div className="flex items-center gap-2 mb-3 px-1">
+                  <Flame className="w-5 h-5 text-orange-400" />
+                  <h2 className="text-base font-display font-bold text-white">Hot in Bangladesh</h2>
+                  <span className="text-[10px] text-amber-400/50 bg-amber-400/10 px-2 py-0.5 rounded-full font-semibold">
+                    {hotGames.length} games
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 sm:gap-3">
+                  {hotGames.map((game) => {
+                    const vendor = store.vendors.find((v) => v.vendorCode === game.vendorCode);
+                    return (
+                      <GameCard key={`${game.vendorCode}-${game.gameCode}`} game={game} vendorName={vendor?.name} />
+                    );
+                  })}
+                </div>
+              </div>
             )}
-
-            {showCategorySections && crashGames.length > 0 && (
-              <GameRow
-                title="Crash Games"
-                icon={<Zap className="w-4 h-4 text-yellow-400" />}
-                games={crashGames}
-                accentColor="text-white"
-              />
-            )}
-
-            {newGames.length > 0 && (
-              <GameRow
-                title="New Games"
-                icon={<Sparkles className="w-4 h-4 text-emerald-400" />}
-                games={newGames}
-                accentColor="text-white"
-              />
-            )}
-
-            {showCategorySections && fishingGames.length > 0 && (
-              <GameRow
-                title="Fishing Games"
-                icon={<Fish className="w-4 h-4 text-blue-400" />}
-                games={fishingGames}
-                accentColor="text-white"
-              />
-            )}
-
-            {showCategorySections && liveCasinoGames.length > 0 && (
-              <GameRow
-                title="Live Casino"
-                icon={<Tv className="w-4 h-4 text-red-400" />}
-                games={liveCasinoGames}
-                accentColor="text-white"
-              />
-            )}
-
-            {featuredProviderSections.map((section, idx) => (
-              <GameRow
-                key={section.vendorCode}
-                title={section.name}
-                icon={idx === 0 ? <Trophy className="w-4 h-4 text-amber-400" /> : <Star className="w-4 h-4 text-white/20" />}
-                games={section.games}
-                accentColor="text-white"
-              />
-            ))}
           </>
         )}
 
-        {showBrowseMode && (
+        {isBrowsing && (
           <>
-            <ProviderChips />
-            <GameGrid isLoading={isLoadingGames} loadProgress={loadProgress} />
-          </>
-        )}
+            <div className="mb-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20" />
+                <input
+                  type="text"
+                  value={localSearch}
+                  onChange={(e) => handleSearch(e.target.value)}
+                  placeholder="Search games..."
+                  className="w-full h-10 pl-10 pr-10 rounded-xl bg-white/5 border border-white/10 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-amber-500/40 transition-colors"
+                />
+                {localSearch && (
+                  <button
+                    onClick={() => handleSearch("")}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            </div>
 
-        {!showBrowseMode && store.games.length > 0 && (
-          <>
             <ProviderChips />
             <GameGrid isLoading={isLoadingGames} loadProgress={loadProgress} />
           </>
@@ -253,5 +145,69 @@ export default function Lobby() {
 
       <BottomNav />
     </div>
+  );
+}
+
+import { Play, Gamepad2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { GameDetailModal } from "@/components/casino/GameDetailModal";
+import type { Game } from "@workspace/api-client-react";
+
+function GameCard({ game, vendorName }: { game: Game; vendorName?: string }) {
+  const [showDetail, setShowDetail] = useState(false);
+  const store = useLobbyStore();
+  const vendor = store.vendors.find((v) => v.vendorCode === game.vendorCode) || null;
+
+  return (
+    <>
+      <div
+        className="group relative rounded-xl bg-[#111827] border border-white/[0.04] overflow-hidden hover:border-amber-500/30 hover:shadow-lg hover:shadow-amber-500/5 transition-all duration-300 cursor-pointer"
+        onClick={() => setShowDetail(true)}
+      >
+        <div className="absolute top-1.5 left-1.5 z-10 flex flex-col gap-1">
+          {game.isNew && (
+            <Badge className="bg-green-500/90 text-white text-[9px] font-bold border-none px-1 py-0 h-4">NEW</Badge>
+          )}
+        </div>
+
+        <div className="aspect-[4/3] w-full relative overflow-hidden">
+          {game.thumbnail ? (
+            <img
+              src={game.thumbnail}
+              alt={game.gameName}
+              loading="lazy"
+              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-amber-500/5 to-orange-500/5">
+              <Gamepad2 className="w-8 h-8 text-white/10" />
+            </div>
+          )}
+
+          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-all duration-200 flex items-center justify-center">
+            <div className="bg-amber-500 rounded-full w-10 h-10 flex items-center justify-center shadow-lg shadow-amber-500/40 scale-75 group-hover:scale-100 transition-transform duration-200">
+              <Play className="w-4 h-4 ml-0.5 text-black" fill="currentColor" />
+            </div>
+          </div>
+        </div>
+
+        <div className="p-2">
+          <h4 className="text-white text-xs font-semibold truncate leading-tight" title={game.gameName}>
+            {game.gameName}
+          </h4>
+          <p className="text-[10px] text-white/20 truncate mt-0.5">
+            {vendorName || game.vendorCode}
+          </p>
+        </div>
+      </div>
+
+      <GameDetailModal
+        game={showDetail ? game : null}
+        vendor={vendor}
+        open={showDetail}
+        onClose={() => setShowDetail(false)}
+      />
+    </>
   );
 }
