@@ -11,6 +11,7 @@ export const usersTable = pgTable("users", {
   currency: text("currency").notNull().default("BDT"),
   role: text("role").notNull().default("player"),
   userCode: text("user_code").notNull().unique(),
+  googleId: text("google_id").unique(),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),

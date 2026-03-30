@@ -223,6 +223,110 @@ router.post("/auth/login", async (req: Request, res: Response) => {
   }
 });
 
+router.post("/auth/google", async (req: Request, res: Response) => {
+  try {
+    const { credential } = req.body as { credential?: string };
+    if (!credential) {
+      res.status(400).json({ success: false, message: "Missing Google credential" });
+      return;
+    }
+
+    let payload: { sub?: string; email?: string; name?: string; picture?: string };
+    try {
+      const parts = credential.split(".");
+      if (parts.length !== 3) throw new Error("Invalid token format");
+      const decoded = Buffer.from(parts[1], "base64url").toString("utf-8");
+      payload = JSON.parse(decoded);
+    } catch {
+      res.status(400).json({ success: false, message: "Invalid Google token" });
+      return;
+    }
+
+    const googleId = payload.sub;
+    const name = payload.name || "Player";
+    const email = payload.email || "";
+
+    if (!googleId) {
+      res.status(400).json({ success: false, message: "Invalid Google token payload" });
+      return;
+    }
+
+    const tokenInfoResp = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${credential}`);
+    if (!tokenInfoResp.ok) {
+      res.status(401).json({ success: false, message: "Google token verification failed" });
+      return;
+    }
+    const tokenInfo = await tokenInfoResp.json() as { sub?: string };
+    if (tokenInfo.sub !== googleId) {
+      res.status(401).json({ success: false, message: "Token mismatch" });
+      return;
+    }
+
+    const existing = await db
+      .select()
+      .from(usersTable)
+      .where(eq(usersTable.googleId, googleId))
+      .limit(1);
+
+    let user;
+    if (existing.length > 0) {
+      user = existing[0];
+      if (!user.isActive) {
+        res.status(401).json({ success: false, message: "Account is disabled" });
+        return;
+      }
+    } else {
+      const clientIp = req.ip || req.socket.remoteAddress || "unknown";
+      if (!checkRegisterRateLimit(clientIp)) {
+        res.status(429).json({ success: false, message: "Too many registration attempts. Please try again later." });
+        return;
+      }
+
+      const phone = `g_${googleId.slice(-10)}`;
+      const userCode = `tk_g_${googleId.slice(-8)}_${Date.now().toString(36)}`;
+      const randomPass = crypto.randomBytes(32).toString("hex");
+      const passwordHash = await bcrypt.hash(randomPass, 10);
+
+      const [newUser] = await db
+        .insert(usersTable)
+        .values({
+          phone,
+          passwordHash,
+          displayName: name,
+          userCode,
+          googleId,
+          balance: "19",
+          currency: "BDT",
+          role: "player",
+          isActive: true,
+        })
+        .returning();
+      user = newUser;
+    }
+
+    const token = generateToken();
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    await db.insert(sessionsTable).values({ token, userId: user.id, expiresAt });
+
+    res.json({
+      success: true,
+      token,
+      user: {
+        id: user.id,
+        phone: user.phone,
+        displayName: user.displayName,
+        balance: Number(user.balance),
+        currency: user.currency,
+        role: user.role,
+        userCode: user.userCode,
+      },
+    });
+  } catch (err) {
+    req.log.error({ err }, "Google auth failed");
+    res.status(500).json({ success: false, message: "Google authentication failed" });
+  }
+});
+
 router.post("/auth/logout", authMiddleware, async (req: Request, res: Response) => {
   try {
     const session = (req as any).session;
