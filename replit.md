@@ -31,7 +31,7 @@ artifacts-monorepo/
 │   │       └── oroplay.ts  # OroPlay proxy + seamless wallet callbacks
 │   └── casino-lobby/       # React casino lobby UI
 │       └── src/
-│           ├── pages/      # Lobby, Login, Register, Admin, Bonus
+│           ├── pages/      # Lobby, Login, Register, Admin, Bonus, Deposit, Withdraw
 │           ├── components/ # Navbar, CategoryTabs, PromoBanner, GameRow, GameGrid, ProviderChips, BottomNav, RewardsBonusSection, etc.
 │           ├── store/      # use-auth-store, use-lobby-store
 │           └── lib/        # api.ts (auth-aware fetch)
@@ -47,13 +47,22 @@ artifacts-monorepo/
 ## Database Schema
 
 ### users
-- id, phone (unique), passwordHash, displayName, balance (numeric), currency (BDT), role (player/admin), userCode (unique), isActive, createdAt, updatedAt
+- id, phone (unique), passwordHash, displayName, balance (numeric), currency (BDT), role (player/admin), userCode (unique), isActive, withdrawPassword (bcrypt-hashed 4-6 digit PIN), createdAt, updatedAt
 
 ### sessions
 - id, userId, token (unique), expiresAt, createdAt
 
 ### transactions
 - id, userId, type (bet/win/cancel/admin_deposit/admin_withdraw), amount, balanceAfter, transactionCode (unique), vendorCode, gameCode, roundId, description, createdAt
+
+### deposits
+- id, userId, amount, method (bkash/nagad), transactionId, screenshotUrl, status (pending/approved/rejected), adminNote, createdAt, updatedAt
+
+### withdrawals
+- id, userId, amount, method (bkash/nagad), accountNumber, status (pending/approved/rejected), adminNote, createdAt, updatedAt
+
+### site_settings
+- id, key (unique), value, createdAt, updatedAt
 
 ## API Routes
 
@@ -70,10 +79,32 @@ artifacts-monorepo/
 - `POST /toggle-user` — enable/disable user {userId, isActive}
 - `GET /transactions` — transaction history with pagination
 - `GET /stats` — total users, active users, total balance
-- `GET /request-log` — in-memory API request log (last 500 requests with method, path, status, duration, user, body)
-- `GET /error-log` — in-memory error log (last 200 errors with details and request bodies)
+- `GET /deposits` — list all deposit requests with user info
+- `POST /deposit/:id/approve` — approve pending deposit (credits balance + bonus)
+- `POST /deposit/:id/reject` — reject pending deposit
+- `GET /withdrawals` — list all withdrawal requests with user info
+- `POST /withdrawal/:id/approve` — approve pending withdrawal
+- `POST /withdrawal/:id/reject` — reject pending withdrawal (refunds balance)
+- `GET /settings` — all site settings
+- `POST /settings` — upsert site settings {settings: Record<string, string>}
+- `GET /request-log` — in-memory API request log
+- `GET /error-log` — in-memory error log
 - `GET /bonus-claims` — all bonus claims across users with amounts
 - `GET /system-health` — relay VPS status/latency, DB status/latency, game cache info, error counts, uptime, memory
+
+### Deposit (`/api/deposit/*`) — requires auth
+- `POST /create` — submit deposit request {amount, method, transactionId, screenshot}
+- `GET /history` — current user's deposit history
+- `GET /bonuses` — available deposit bonus tiers
+
+### Withdraw (`/api/withdraw/*`) — requires auth
+- `POST /create` — submit withdrawal {amount, method, accountNumber, withdrawPassword}
+- `GET /history` — current user's withdrawal history
+- `GET /has-password` — check if user has withdraw PIN set
+- `POST /set-password` — set/update 4-6 digit withdraw PIN
+
+### Settings (`/api/settings/*`)
+- `GET /public` — public settings (payment numbers, limits, red pocket config)
 
 ### OroPlay (`/api/oroplay/*`)
 - `POST /game/launch` — get game launch URL (requires auth)

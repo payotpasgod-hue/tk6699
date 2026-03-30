@@ -229,8 +229,8 @@ const translations: Record<Lang, Record<string, string>> = {
 
     "welcome.title": "Welcome Bonus Package",
     "welcome.instantBonus": "Instant Bonus Available",
-    "welcome.registerFree": "Register & Get ৳19 FREE",
-    "welcome.registrationBonus": "৳19 Registration Bonus — No Deposit Required!",
+    "welcome.registerFree": "Register & Get ৳98 FREE",
+    "welcome.registrationBonus": "৳98 Registration Bonus — No Deposit Required!",
     "welcome.registrationLabel": "Registration Bonus",
     "welcome.registrationDesc": "Just Register — No Deposit!",
     "welcome.firstDeposit": "1st Deposit Bonus",
@@ -488,8 +488,8 @@ const translations: Record<Lang, Record<string, string>> = {
 
     "welcome.title": "স্বাগতম বোনাস প্যাকেজ",
     "welcome.instantBonus": "তাৎক্ষণিক বোনাস উপলব্ধ",
-    "welcome.registerFree": "রেজিস্টার করুন ও ৳১৯ ফ্রি পান",
-    "welcome.registrationBonus": "৳১৯ রেজিস্ট্রেশন বোনাস — জমা প্রয়োজন নেই!",
+    "welcome.registerFree": "রেজিস্টার করুন ও ৳৯৮ ফ্রি পান",
+    "welcome.registrationBonus": "৳৯৮ রেজিস্ট্রেশন বোনাস — জমা প্রয়োজন নেই!",
     "welcome.registrationLabel": "রেজিস্ট্রেশন বোনাস",
     "welcome.registrationDesc": "শুধু রেজিস্টার করুন — জমা প্রয়োজন নেই!",
     "welcome.firstDeposit": "১ম জমা বোনাস",
@@ -552,7 +552,7 @@ const translations: Record<Lang, Record<string, string>> = {
     "login.loggedInAs": "के रूप में लॉगिन",
     "login.failed": "लॉगिन विफल",
     "login.newPlayer": "नए खिलाड़ी? ৳575 बोनस पाएं!",
-    "login.freeBonus": "रजिस्ट्रेशन के लिए ৳19 मुफ्त — जमा जरूरी नहीं",
+    "login.freeBonus": "रजिस्ट्रेशन के लिए ৳98 मुफ्त — जमा जरूरी नहीं",
     "login.claim": "दावा",
 
     "register.title": "अपना अकाउंट बनाएं",
@@ -747,8 +747,8 @@ const translations: Record<Lang, Record<string, string>> = {
 
     "welcome.title": "स्वागत बोनस पैकेज",
     "welcome.instantBonus": "तुरंत बोनस उपलब्ध",
-    "welcome.registerFree": "रजिस्टर करें और ৳19 मुफ्त पाएं",
-    "welcome.registrationBonus": "৳19 रजिस्ट्रेशन बोनस — जमा जरूरी नहीं!",
+    "welcome.registerFree": "रजिस्टर करें और ৳98 मुफ्त पाएं",
+    "welcome.registrationBonus": "৳98 रजिस्ट्रेशन बोनस — जमा जरूरी नहीं!",
     "welcome.registrationLabel": "रजिस्ट्रेशन बोनस",
     "welcome.registrationDesc": "बस रजिस्टर करें — जमा जरूरी नहीं!",
     "welcome.firstDeposit": "पहली जमा बोनस",
