@@ -53,7 +53,7 @@ function saveCacheToFile(data: CachedData): void {
 loadCacheFromFile();
 
 function getEnvConfig() {
-  const endpoint = (process.env["OROPLAY_API_ENDPOINT"] || "https://api-endpoint.com/api/v2").replace(/\/+$/, "");
+  const endpoint = (process.env["OROPLAY_API_ENDPOINT"] || "https://bs.sxvwlkohlv.com/api/v2").replace(/\/+$/, "");
   return {
     clientId: process.env["OROPLAY_CLIENT_ID"] || "",
     clientSecret: process.env["OROPLAY_CLIENT_SECRET"] || "",

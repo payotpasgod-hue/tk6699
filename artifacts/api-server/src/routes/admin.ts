@@ -229,19 +229,22 @@ router.get("/admin/bonus-claims", authMiddleware, adminMiddleware, async (req: R
 
 router.get("/admin/system-health", authMiddleware, adminMiddleware, async (req: Request, res: Response) => {
   try {
-    const relayEndpoint = (process.env["OROPLAY_API_ENDPOINT"] || "").replace(/\/+$/, "");
+    const apiEndpoint = (process.env["OROPLAY_API_ENDPOINT"] || "").replace(/\/+$/, "");
 
-    let relayStatus = "unknown";
-    let relayLatency = 0;
+    let apiStatus = "unknown";
+    let apiLatency = 0;
     try {
       const start = Date.now();
-      const relayHost = relayEndpoint.replace(/\/api\/v2$/, "");
-      const resp = await fetch(`${relayHost}/health`, { signal: AbortSignal.timeout(5000) });
-      relayLatency = Date.now() - start;
-      const data = await resp.json() as { ok?: boolean };
-      relayStatus = data.ok ? "online" : "error";
+      const resp = await fetch(`${apiEndpoint}/auth/createtoken`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId: "ping", clientSecret: "ping" }),
+        signal: AbortSignal.timeout(5000),
+      });
+      apiLatency = Date.now() - start;
+      apiStatus = resp.status === 401 || resp.status === 200 || resp.status === 400 ? "online" : "error";
     } catch {
-      relayStatus = "offline";
+      apiStatus = "offline";
     }
 
     let dbStatus = "unknown";
@@ -282,7 +285,7 @@ router.get("/admin/system-health", authMiddleware, adminMiddleware, async (req: 
     res.json({
       success: true,
       health: {
-        relay: { status: relayStatus, latency: relayLatency, endpoint: relayEndpoint },
+        oroplayApi: { status: apiStatus, latency: apiLatency, endpoint: apiEndpoint },
         database: { status: dbStatus, latency: dbLatency },
         cache: cacheInfo,
         errors: { total: totalErrors, lastHour: recentErrors },

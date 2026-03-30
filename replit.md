@@ -130,12 +130,12 @@ artifacts-monorepo/
 
 ```
 Player → Replit App (this server)
-Replit App → Relay VPS (193.23.221.170:9000) → OroPlay API
+Replit App → OroPlay API (https://bs.sxvwlkohlv.com/api/v2)
 OroPlay → Relay VPS → Replit App (seamless wallet callbacks)
 ```
 
 - **Client ID**: tk6699
-- **Relay endpoint**: http://193.23.221.170:9000/api/v2
+- **API endpoint**: https://bs.sxvwlkohlv.com/api/v2
 - **Wallet mode**: Seamless (all balances in our DB)
 - **Currency**: BDT (৳)
 
@@ -144,7 +144,7 @@ OroPlay → Relay VPS → Replit App (seamless wallet callbacks)
 - `DATABASE_URL` — PostgreSQL connection (auto-provided by Replit)
 - `OROPLAY_CLIENT_ID` — OroPlay client ID (tk6699)
 - `OROPLAY_CLIENT_SECRET` — OroPlay client secret
-- `OROPLAY_API_ENDPOINT` — Relay VPS endpoint
+- `OROPLAY_API_ENDPOINT` — OroPlay API endpoint (https://bs.sxvwlkohlv.com/api/v2)
 - `SESSION_SECRET` — Session signing secret
 - `VITE_GOOGLE_CLIENT_ID` — Google OAuth 2.0 Client ID for Google Sign-In
 
