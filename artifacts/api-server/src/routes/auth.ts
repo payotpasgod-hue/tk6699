@@ -231,7 +231,7 @@ router.post("/auth/google", async (req: Request, res: Response) => {
       return;
     }
 
-    let payload: { sub?: string; email?: string; name?: string; picture?: string; user_id?: string };
+    let payload: { sub?: string; email?: string; name?: string; picture?: string; user_id?: string; iss?: string; firebase?: any };
     try {
       const parts = credential.split(".");
       if (parts.length !== 3) throw new Error("Invalid token format");
@@ -250,26 +250,28 @@ router.post("/auth/google", async (req: Request, res: Response) => {
       return;
     }
 
-    const isFirebaseToken = payload.user_id && credential.includes("securetoken.google.com");
+    const isFirebaseToken = !!(payload.iss && payload.iss.includes("securetoken.google.com"));
 
     if (isFirebaseToken) {
-      const verifyResp = await fetch(`https://www.googleapis.com/identitytoolkit/v3/relyingparty/getAccountInfo?key=AIzaSyBA4SPo_2TPU2R5R6LsbmL0xnVLQOGk_LA`, {
+      const verifyResp = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=AIzaSyBA4SPo_2TPU2R5R6LsbmL0xnVLQOGk_LA`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ idToken: credential }),
       });
       if (!verifyResp.ok) {
+        req.log.error({ status: verifyResp.status }, "Firebase verification failed");
         res.status(401).json({ success: false, message: "Firebase token verification failed" });
         return;
       }
-      const verifyData = await verifyResp.json() as { users?: Array<{ localId?: string; displayName?: string; email?: string }> };
+      const verifyData = await verifyResp.json() as { users?: Array<{ localId?: string; displayName?: string; email?: string; providerUserInfo?: Array<{ providerId?: string; rawId?: string; displayName?: string }> }> };
       const fbUser = verifyData.users?.[0];
       if (!fbUser?.localId) {
         res.status(401).json({ success: false, message: "Firebase token invalid" });
         return;
       }
-      googleId = fbUser.localId;
-      name = fbUser.displayName || name;
+      const googleProvider = fbUser.providerUserInfo?.find(p => p.providerId === "google.com");
+      googleId = googleProvider?.rawId || fbUser.localId;
+      name = googleProvider?.displayName || fbUser.displayName || name;
     } else {
       const tokenInfoResp = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${credential}`);
       if (!tokenInfoResp.ok) {
