@@ -279,6 +279,7 @@ const translations: Record<Lang, Record<string, string>> = {
     "chat.autoBonus": "Check our Bonus Center for the latest promotions! New users get a welcome bonus on their first deposit. Our team can help with any bonus-related questions.",
     "chat.autoGame": "If you're experiencing game loading issues, please try refreshing the page. If the problem persists, let us know the game name and we'll investigate.",
     "chat.autoDefault": "Thank you for your message! Our support team will respond shortly. For urgent matters, you can also reach us on WhatsApp.",
+    "chat.supportAgent": "Support Agent",
   },
   bn: {
     "nav.bonus": "বোনাস",
@@ -549,6 +550,7 @@ const translations: Record<Lang, Record<string, string>> = {
     "chat.autoBonus": "সর্বশেষ প্রমোশনের জন্য আমাদের বোনাস সেন্টার দেখুন! নতুন ব্যবহারকারীরা প্রথম জমাতে স্বাগত বোনাস পান।",
     "chat.autoGame": "গেম লোডিং সমস্যা হলে পৃষ্ঠা রিফ্রেশ করুন। সমস্যা থাকলে গেমের নাম জানান, আমরা দেখব।",
     "chat.autoDefault": "আপনার মেসেজের জন্য ধন্যবাদ! আমাদের সাপোর্ট টিম শীঘ্রই উত্তর দেবে। জরুরি বিষয়ে হোয়াটসঅ্যাপেও যোগাযোগ করতে পারেন।",
+    "chat.supportAgent": "সাপোর্ট এজেন্ট",
   },
   hi: {
     "nav.bonus": "बोनस",
@@ -819,6 +821,7 @@ const translations: Record<Lang, Record<string, string>> = {
     "chat.autoBonus": "नवीनतम प्रमोशन के लिए बोनस सेंटर देखें! नए उपयोगकर्ताओं को पहली जमा पर स्वागत बोनस मिलता है।",
     "chat.autoGame": "गेम लोडिंग समस्या होने पर पेज रिफ्रेश करें। समस्या बनी रहे तो गेम का नाम बताएं, हम देखेंगे।",
     "chat.autoDefault": "आपके संदेश के लिए धन्यवाद! हमारी सपोर्ट टीम जल्द जवाब देगी। तत्काल मामलों के लिए WhatsApp पर भी संपर्क कर सकते हैं।",
+    "chat.supportAgent": "सपोर्ट एजेंट",
   },
 };
 

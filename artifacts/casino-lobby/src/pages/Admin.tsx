@@ -5,6 +5,7 @@ import {
   RefreshCw, BarChart3, Ban, CheckCircle, Activity, AlertTriangle, Gift,
   Server, Database, Clock, Zap, Globe, HardDrive, Search, X, FileText,
   Settings, CreditCard, Banknote, Eye, CheckCircle2, XCircle, Loader2,
+  MessageCircle, Send, ArrowLeft,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -121,7 +122,26 @@ interface Stats {
   totalBalance: number;
 }
 
-type TabId = "overview" | "users" | "transactions" | "deposits" | "withdrawals" | "settings" | "requests" | "errors" | "bonuses";
+interface SupportConversation {
+  user_id: number;
+  display_name: string;
+  phone: string;
+  total_messages: number;
+  unread_count: number;
+  last_message_at: string;
+  last_message: string;
+}
+
+interface SupportMsg {
+  id: number;
+  userId: number;
+  sender: "user" | "admin";
+  message: string;
+  isRead: boolean;
+  createdAt: string;
+}
+
+type TabId = "overview" | "users" | "transactions" | "deposits" | "withdrawals" | "settings" | "requests" | "errors" | "bonuses" | "support";
 
 export default function Admin() {
   const [, setLocation] = useLocation();
@@ -147,6 +167,11 @@ export default function Admin() {
   const [screenshotDialog, setScreenshotDialog] = useState<string | null>(null);
   const [health, setHealth] = useState<SystemHealth | null>(null);
   const [logFilter, setLogFilter] = useState("");
+  const [supportConversations, setSupportConversations] = useState<SupportConversation[]>([]);
+  const [supportMessages, setSupportMessages] = useState<SupportMsg[]>([]);
+  const [activeChat, setActiveChat] = useState<SupportConversation | null>(null);
+  const [supportReply, setSupportReply] = useState("");
+  const [sendingReply, setSendingReply] = useState(false);
 
   const [depositDialog, setDepositDialog] = useState<AdminUser | null>(null);
   const [withdrawDialog, setWithdrawDialog] = useState<AdminUser | null>(null);
@@ -222,9 +247,37 @@ export default function Admin() {
     if (data?.success) setHealth(data.health);
   }, []);
 
+  const loadSupportConversations = useCallback(async () => {
+    const data = await safeLoad(() => apiRequest("/api/admin/support/conversations"));
+    if (data?.success) setSupportConversations(data.conversations);
+  }, []);
+
+  const loadSupportChat = useCallback(async (userId: number) => {
+    const data = await safeLoad(() => apiRequest(`/api/admin/support/messages/${userId}`));
+    if (data?.success) setSupportMessages(data.messages);
+  }, []);
+
+  const handleSendReply = async () => {
+    if (!activeChat || !supportReply.trim() || sendingReply) return;
+    setSendingReply(true);
+    try {
+      const data = await apiRequest("/api/admin/support/reply", {
+        method: "POST",
+        body: JSON.stringify({ userId: activeChat.user_id, message: supportReply.trim() }),
+      });
+      if (data.success) {
+        setSupportMessages((prev) => [...prev, data.message]);
+        setSupportReply("");
+      }
+    } catch {
+      toast({ variant: "destructive", title: "Error", description: "Failed to send reply" });
+    }
+    setSendingReply(false);
+  };
+
   const loadAll = useCallback(async () => {
     setIsLoading(true);
-    await Promise.all([loadUsers(), loadStats(), loadAgentBalance(), loadHealth(), loadRequestLogs(), loadErrorLogs()]);
+    await Promise.all([loadUsers(), loadStats(), loadAgentBalance(), loadHealth(), loadRequestLogs(), loadErrorLogs(), loadSupportConversations()]);
     setIsLoading(false);
   }, []);
 
@@ -238,6 +291,7 @@ export default function Admin() {
     if (tab === "settings") loadSiteSettings();
     if (tab === "requests") loadRequestLogs();
     if (tab === "errors") loadErrorLogs();
+    if (tab === "support") { loadSupportConversations(); setActiveChat(null); }
   }, [tab]);
 
   const handleDeposit = async () => {
@@ -418,6 +472,7 @@ export default function Admin() {
     { id: "requests", label: "Logs", icon: FileText, badge: requestLogs.length },
     { id: "errors", label: "Errors", icon: AlertTriangle, badge: errorLogs.length },
     { id: "bonuses", label: "Bonuses", icon: Gift, badge: bonusClaims.length },
+    { id: "support", label: "Support", icon: MessageCircle, badge: supportConversations.reduce((sum, c) => sum + c.unread_count, 0), urgent: supportConversations.some(c => c.unread_count > 0) },
   ];
 
   const filteredLogs = logFilter
@@ -1128,6 +1183,116 @@ export default function Admin() {
                 </tbody>
               </table>
             </div>
+          </div>
+        )}
+
+        {tab === "support" && (
+          <div className="bg-[#111827]/80 border border-white/5 rounded-xl overflow-hidden">
+            {!activeChat ? (
+              <div>
+                <div className="p-4 border-b border-white/5 flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                    <MessageCircle className="w-4 h-4 text-amber-400" /> Support Conversations
+                  </h3>
+                  <Button size="sm" variant="outline" className="bg-white/5 border-white/10 text-xs" onClick={loadSupportConversations}>
+                    <RefreshCw className="w-3 h-3 mr-1" /> Refresh
+                  </Button>
+                </div>
+                {supportConversations.length === 0 ? (
+                  <div className="p-8 text-center text-white/20 text-sm">No support messages yet</div>
+                ) : (
+                  <div className="divide-y divide-white/5">
+                    {supportConversations.map((conv) => (
+                      <button
+                        key={conv.user_id}
+                        className="w-full text-left p-4 hover:bg-white/[0.03] transition-colors flex items-center gap-3"
+                        onClick={() => { setActiveChat(conv); loadSupportChat(conv.user_id); }}
+                      >
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-500/20 to-orange-500/20 border border-amber-500/20 flex items-center justify-center shrink-0">
+                          <span className="text-sm font-bold text-amber-400">{conv.display_name.charAt(0).toUpperCase()}</span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-semibold text-white truncate">{conv.display_name}</span>
+                            <span className="text-[10px] text-white/20 whitespace-nowrap ml-2">{fmtDate(conv.last_message_at)}</span>
+                          </div>
+                          <div className="flex items-center justify-between mt-0.5">
+                            <p className="text-xs text-white/40 truncate pr-2">{conv.last_message}</p>
+                            {conv.unread_count > 0 && (
+                              <span className="shrink-0 min-w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-[10px] font-bold text-white px-1">
+                                {conv.unread_count}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[10px] text-white/15 mt-0.5">{conv.phone} · {conv.total_messages} messages</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="flex flex-col h-[600px]">
+                <div className="p-3 border-b border-white/5 flex items-center gap-3 shrink-0">
+                  <button
+                    className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors"
+                    onClick={() => { setActiveChat(null); setSupportMessages([]); loadSupportConversations(); }}
+                  >
+                    <ArrowLeft className="w-4 h-4 text-white/50" />
+                  </button>
+                  <div>
+                    <p className="text-sm font-bold text-white">{activeChat.display_name}</p>
+                    <p className="text-[10px] text-white/30">{activeChat.phone}</p>
+                  </div>
+                  <Button size="sm" variant="outline" className="ml-auto bg-white/5 border-white/10 text-xs" onClick={() => loadSupportChat(activeChat.user_id)}>
+                    <RefreshCw className="w-3 h-3" />
+                  </Button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                  {supportMessages.map((msg) => (
+                    <div key={msg.id} className={`flex ${msg.sender === "admin" ? "justify-end" : "justify-start"}`}>
+                      <div
+                        className={`max-w-[75%] rounded-2xl px-3.5 py-2.5 ${
+                          msg.sender === "admin"
+                            ? "bg-gradient-to-r from-amber-500 to-orange-500 text-black rounded-br-md"
+                            : "bg-white/5 border border-white/10 text-white/90 rounded-bl-md"
+                        }`}
+                      >
+                        <p className="text-sm leading-relaxed">{msg.message}</p>
+                        <p className={`text-[10px] mt-1 ${msg.sender === "admin" ? "text-black/50" : "text-white/30"}`}>
+                          {fmtDate(msg.createdAt)}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                  {supportMessages.length === 0 && (
+                    <div className="text-center py-8 text-white/20 text-sm">No messages in this conversation</div>
+                  )}
+                </div>
+
+                <div className="p-3 border-t border-white/5 shrink-0">
+                  <div className="flex items-center gap-2">
+                    <Input
+                      placeholder="Type your reply..."
+                      className="flex-1 bg-white/5 border-white/10 text-sm"
+                      value={supportReply}
+                      onChange={(e) => setSupportReply(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") handleSendReply(); }}
+                      disabled={sendingReply}
+                    />
+                    <Button
+                      size="sm"
+                      className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-black"
+                      onClick={handleSendReply}
+                      disabled={!supportReply.trim() || sendingReply}
+                    >
+                      <Send className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
