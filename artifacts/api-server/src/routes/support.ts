@@ -8,7 +8,7 @@ const router = Router();
 
 router.post("/support/send", authMiddleware, async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId as number;
+    const userId = (req as any).user?.id as number;
     const { message } = req.body as { message?: string };
 
     if (!message || !message.trim()) {
@@ -31,7 +31,7 @@ router.post("/support/send", authMiddleware, async (req: Request, res: Response)
 
 router.get("/support/messages", authMiddleware, async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId as number;
+    const userId = (req as any).user?.id as number;
     const after = req.query.after ? Number(req.query.after) : 0;
 
     const messages = await db
