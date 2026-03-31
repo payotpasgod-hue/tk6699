@@ -95,6 +95,14 @@ export function Navbar() {
               </button>
 
               <button
+                onClick={() => setLocation("/profile")}
+                className="hidden sm:flex w-9 h-9 rounded-lg bg-white/5 hover:bg-white/10 items-center justify-center transition-colors"
+                title={t("nav.profile")}
+              >
+                <User className="w-4 h-4 text-white/50 hover:text-amber-400" />
+              </button>
+
+              <button
                 onClick={handleLogout}
                 className="hidden sm:flex w-9 h-9 rounded-lg bg-white/5 hover:bg-red-500/20 items-center justify-center transition-colors"
                 title={t("nav.logout")}
@@ -147,6 +155,14 @@ export function Navbar() {
                 <RefreshCw className="w-3 h-3" /> {t("nav.refresh")}
               </button>
             </div>
+
+            <button
+              onClick={() => { setShowMobileMenu(false); setLocation("/profile"); }}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors"
+            >
+              <User className="w-4 h-4 text-white/70" />
+              <span className="text-sm text-white font-semibold">{t("nav.profile")}</span>
+            </button>
 
             <button
               onClick={() => { setShowMobileMenu(false); setLocation("/bonus"); }}

@@ -12,6 +12,7 @@ import Admin from "./pages/Admin";
 import Bonus from "./pages/Bonus";
 import Deposit from "./pages/Deposit";
 import Withdraw from "./pages/Withdraw";
+import Profile from "./pages/Profile";
 import NotFound from "./pages/not-found";
 
 const queryClient = new QueryClient({
@@ -59,6 +60,7 @@ function Router() {
       <Route path="/bonus">{() => <ProtectedRoute component={Bonus} />}</Route>
       <Route path="/deposit">{() => <ProtectedRoute component={Deposit} />}</Route>
       <Route path="/withdraw">{() => <ProtectedRoute component={Withdraw} />}</Route>
+      <Route path="/profile">{() => <ProtectedRoute component={Profile} />}</Route>
       <Route path="/">{() => <ProtectedRoute component={Lobby} />}</Route>
       <Route component={NotFound} />
     </Switch>

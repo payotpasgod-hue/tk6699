@@ -1,4 +1,4 @@
-import { LayoutGrid, Gamepad2, Tv, Fish, Gift, ArrowDownToLine, ArrowUpFromLine } from "lucide-react";
+import { LayoutGrid, Gamepad2, Tv, Gift, ArrowDownToLine, ArrowUpFromLine, User } from "lucide-react";
 import { useLobbyStore } from "@/store/use-lobby-store";
 import { useAuthStore } from "@/store/use-auth-store";
 import { useLocation } from "wouter";
@@ -14,7 +14,8 @@ export function BottomNav() {
   const isBonus = location === "/bonus";
   const isDeposit = location === "/deposit";
   const isWithdraw = location === "/withdraw";
-  const isSpecialPage = isBonus || isDeposit || isWithdraw;
+  const isProfile = location === "/profile";
+  const isSpecialPage = isBonus || isDeposit || isWithdraw || isProfile;
 
   const GAME_TABS = [
     { id: "ALL", label: t("bottom.all"), icon: LayoutGrid },
@@ -115,6 +116,26 @@ export function BottomNav() {
             )}
           >
             {t("bottom.bonus")}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setLocation("/profile")}
+          className="flex flex-col items-center gap-0.5 py-1 px-1.5"
+        >
+          <User
+            className={clsx(
+              "w-5 h-5 transition-colors",
+              isProfile ? "text-amber-400" : "text-white/30"
+            )}
+          />
+          <span
+            className={clsx(
+              "text-[10px] font-semibold transition-colors",
+              isProfile ? "text-amber-400" : "text-white/30"
+            )}
+          >
+            {t("bottom.profile")}
           </span>
         </button>
       </div>

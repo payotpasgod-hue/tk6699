@@ -8,6 +8,7 @@ import depositRouter from "./deposit";
 import withdrawRouter from "./withdraw";
 import settingsRouter from "./settings";
 import supportRouter from "./support";
+import profileRouter from "./profile";
 
 const router: IRouter = Router();
 
@@ -19,6 +20,7 @@ router.use(depositRouter);
 router.use(withdrawRouter);
 router.use(settingsRouter);
 router.use(supportRouter);
+router.use(profileRouter);
 router.use(oroplayRouter);
 
 export default router;
