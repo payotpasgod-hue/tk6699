@@ -4,6 +4,7 @@ import { usersTable, transactionsTable } from "@workspace/db/schema";
 import { eq, desc, sql } from "drizzle-orm";
 import { authMiddleware, adminMiddleware } from "./auth";
 import { requestLog, errorLog } from "../lib/request-logger";
+import { getVisitorStats } from "../lib/visitor-tracker";
 
 async function atomicBalanceUpdate(userId: number, amount: number, requireSufficient: boolean = false): Promise<number | null> {
   if (requireSufficient && amount < 0) {
@@ -282,6 +283,8 @@ router.get("/admin/system-health", authMiddleware, adminMiddleware, async (req: 
       }
     } catch {}
 
+    const visitors = getVisitorStats();
+
     res.json({
       success: true,
       health: {
@@ -292,6 +295,7 @@ router.get("/admin/system-health", authMiddleware, adminMiddleware, async (req: 
         requests: { tracked: totalRequests },
         uptime: Math.round(process.uptime()),
         memory: Math.round(process.memoryUsage().rss / 1024 / 1024),
+        visitors,
       },
     });
   } catch (err) {

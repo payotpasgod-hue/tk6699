@@ -7,7 +7,7 @@ import { apiRequest } from "@/lib/api";
 import { useT } from "@/lib/i18n";
 import {
   Gift, Coins, Trophy, Percent, Star, Crown, Clock,
-  Zap, Users, Calendar, ChevronRight, Sparkles, Target, Lock
+  Zap, Users, Calendar, ChevronRight, Target, Lock
 } from "lucide-react";
 
 const DAILY_REWARDS = [
@@ -40,7 +40,6 @@ export default function Bonus() {
   const { toast } = useToast();
   const t = useT();
   const [activeTab, setActiveTab] = useState<"gifts" | "daily" | "vip" | "referral">("gifts");
-  const [giftBoxes, setGiftBoxes] = useState<{ id: number; opened: boolean; amount: number | null }[]>([]);
   const [spinAngle, setSpinAngle] = useState(0);
   const [isSpinning, setIsSpinning] = useState(false);
   const [cooldown, setCooldown] = useState(0);
@@ -56,24 +55,9 @@ export default function Bonus() {
       const data = await apiRequest("/api/bonus/claims");
       if (data.success) {
         setClaimedBonuses(data.claims);
-        initGiftBoxes(data.claims);
         initCooldown(data.claims);
       }
-    } catch {
-      initGiftBoxes([]);
-    }
-  };
-
-  const initGiftBoxes = (claims: ClaimedBonus[]) => {
-    const boxes = Array.from({ length: 9 }, (_, i) => {
-      const claim = claims.find((c) => c.bonusType === "gift_box" && c.bonusKey === `box_${i}`);
-      return {
-        id: i,
-        opened: !!claim,
-        amount: claim ? Number(claim.amount) : null,
-      };
-    });
-    setGiftBoxes(boxes);
+    } catch {}
   };
 
   const initCooldown = (claims: ClaimedBonus[]) => {
@@ -113,25 +97,6 @@ export default function Bonus() {
       setClaiming(false);
     }
   };
-
-  const openGiftBox = useCallback(async (id: number) => {
-    if (giftBoxes[id]?.opened || claiming) return;
-
-    const result = await claimBonus("gift_box", `box_${id}`);
-    if (result.success && result.amount) {
-      setGiftBoxes((prev) =>
-        prev.map((box) =>
-          box.id === id ? { ...box, opened: true, amount: result.amount! } : box
-        )
-      );
-      toast({
-        title: `\u{1F381} ${t("bonus.youWon", { amount: result.amount })}`,
-        description: t("bonus.balance", { balance: result.newBalance?.toFixed(2) || "0" }),
-      });
-    } else {
-      toast({ variant: "destructive", title: t("bonus.claimFailed"), description: result.message || t("bonus.tryAgain") });
-    }
-  }, [giftBoxes, claiming, toast, t]);
 
   const handleSpin = useCallback(async () => {
     if (isSpinning || cooldown > 0 || claiming) return;
@@ -199,7 +164,7 @@ export default function Bonus() {
   };
 
   const TABS = [
-    { id: "gifts" as const, label: t("bonus.giftBox"), icon: Gift },
+    { id: "gifts" as const, label: t("bonus.luckySpin"), icon: Target },
     { id: "daily" as const, label: t("bonus.daily"), icon: Calendar },
     { id: "vip" as const, label: t("bonus.vip"), icon: Crown },
     { id: "referral" as const, label: t("bonus.referral"), icon: Users },
@@ -244,43 +209,6 @@ export default function Bonus() {
 
         {activeTab === "gifts" && (
           <div className="space-y-6">
-            <div className="bg-[#111827]/80 border border-white/5 rounded-2xl p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                  <Sparkles className="w-5 h-5 text-amber-400" />
-                  {t("bonus.mysteryGiftBoxes")}
-                </h2>
-                <span className="text-xs text-amber-400/60">{t("bonus.tapToReveal")}</span>
-              </div>
-
-              <div className="grid grid-cols-3 gap-3">
-                {giftBoxes.map((box) => (
-                  <button
-                    key={box.id}
-                    onClick={() => openGiftBox(box.id)}
-                    disabled={box.opened || claiming}
-                    className={`relative aspect-square rounded-xl flex flex-col items-center justify-center transition-all duration-500 ${
-                      box.opened
-                        ? "bg-amber-500/10 border border-amber-500/20"
-                        : "bg-gradient-to-br from-amber-500/20 to-orange-600/20 border border-amber-500/30 hover:from-amber-500/30 hover:to-orange-600/30 hover:scale-105 active:scale-95 cursor-pointer"
-                    }`}
-                  >
-                    {box.opened ? (
-                      <>
-                        <Coins className="w-6 h-6 text-amber-400 mb-1" />
-                        <span className="text-lg font-bold text-amber-400">{"\u09F3"}{box.amount}</span>
-                      </>
-                    ) : (
-                      <>
-                        <Gift className="w-8 h-8 text-amber-400/80 mb-1" />
-                        <span className="text-[10px] text-amber-400/40">{t("bonus.tap")}</span>
-                      </>
-                    )}
-                  </button>
-                ))}
-              </div>
-            </div>
-
             <div className="bg-[#111827]/80 border border-white/5 rounded-2xl p-5">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-bold text-white flex items-center gap-2">

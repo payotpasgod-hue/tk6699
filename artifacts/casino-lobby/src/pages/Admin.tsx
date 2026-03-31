@@ -114,6 +114,7 @@ interface SystemHealth {
   requests: { tracked: number };
   uptime: number;
   memory: number;
+  visitors?: { onlineNow: number; totalVisits: number; todayVisits: number; todayUniqueIPs: number };
 }
 
 interface Stats {
@@ -566,6 +567,39 @@ export default function Admin() {
                     <p className="text-xl font-bold text-white">{s.value}</p>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {health?.visitors && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="bg-[#111827]/80 border border-white/5 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    <span className="text-[10px] text-white/30 uppercase tracking-wider">Online Now</span>
+                  </div>
+                  <p className="text-xl font-bold text-emerald-400">{health.visitors.onlineNow}</p>
+                </div>
+                <div className="bg-[#111827]/80 border border-white/5 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Eye className="w-4 h-4 text-cyan-400" />
+                    <span className="text-[10px] text-white/30 uppercase tracking-wider">Today Visits</span>
+                  </div>
+                  <p className="text-xl font-bold text-white">{health.visitors.todayVisits}</p>
+                </div>
+                <div className="bg-[#111827]/80 border border-white/5 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Users className="w-4 h-4 text-violet-400" />
+                    <span className="text-[10px] text-white/30 uppercase tracking-wider">Unique IPs Today</span>
+                  </div>
+                  <p className="text-xl font-bold text-white">{health.visitors.todayUniqueIPs}</p>
+                </div>
+                <div className="bg-[#111827]/80 border border-white/5 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-1">
+                    <BarChart3 className="w-4 h-4 text-amber-400" />
+                    <span className="text-[10px] text-white/30 uppercase tracking-wider">Total Visits</span>
+                  </div>
+                  <p className="text-xl font-bold text-white">{health.visitors.totalVisits}</p>
+                </div>
               </div>
             )}
 

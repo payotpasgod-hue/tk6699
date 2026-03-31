@@ -90,7 +90,7 @@ artifacts-monorepo/
 - `GET /request-log` — in-memory API request log
 - `GET /error-log` — in-memory error log
 - `GET /bonus-claims` — all bonus claims across users with amounts
-- `GET /system-health` — relay VPS status/latency, DB status/latency, game cache info, error counts, uptime, memory
+- `GET /system-health` — relay VPS status/latency, DB status/latency, game cache info, error counts, uptime, memory, live visitor stats (online now, today visits, unique IPs, total visits)
 
 ### Deposit (`/api/deposit/*`) — requires auth
 - `POST /create` — submit deposit request {amount, method, transactionId, screenshot}
@@ -140,8 +140,7 @@ artifacts-monorepo/
 - **Registration bonus**: ৳19 credited immediately on new account creation (no deposit required)
 - **Welcome bonus package**: ৳575 total (displayed on login/register pages via popup modal)
   - ৳19 registration (free), ৳156 first deposit (100%), ৳100 second deposit (50%), ৳100 third deposit (25%), ৳100 daily cashback (10%), ৳100 VIP weekly
-- **Bonus Center page**: Gift boxes, spin wheel, daily rewards, hourly bonus — all call `/api/bonus/claim` for real balance mutations with advisory-locked atomic updates
-  - Gift boxes: 9 mystery boxes, weighted random ৳5-500, each claimable once
+- **Bonus Center page**: spin wheel, daily rewards, hourly bonus — all call `/api/bonus/claim` for real balance mutations with advisory-locked atomic updates
   - Lucky Spin: random ৳10-500, 1x per hour (server-enforced)
   - Daily rewards: 7-day streak (৳10/20/30/50/75/100/500), each day claimable once
   - Hourly bonus: random ৳5-100, 1x per hour (server-enforced via DB timestamp)
@@ -186,7 +185,8 @@ OroPlay → Relay VPS → Replit App (seamless wallet callbacks)
 - **Provider logos**: Real logos from cdn.softswiss.net CDN with text-initial fallback
 - **Login/Register**: Google Sign-In via OAuth popup flow (custom styled button, works in iframes)
 - **Google auth helper**: `src/lib/google-auth.ts` — popup OAuth + redirect fallback
-- **Bonus page** (`/bonus`): Gift Box (9 mystery boxes), Lucky Spin wheel, Daily Login Rewards, Hourly Bonus, Missions, VIP Tiers, Referral System
+- **Bonus page** (`/bonus`): Lucky Spin wheel, Daily Login Rewards, Hourly Bonus, Deposit Bonus promos, VIP Tiers, Referral System
+- **Visitor tracking**: In-memory tracking middleware (online sessions, daily visits, unique IPs, total visits) — stats displayed in admin overview
 
 ## Color Theme
 
