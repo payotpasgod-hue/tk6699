@@ -3,7 +3,7 @@ import { clsx } from "clsx";
 import { useState, useCallback } from "react";
 
 const PROVIDER_LOGO_MAP: Record<string, string> = {
-  "slot-jili": "https://cdn.softswiss.net/i/s2/187/jili.png",
+  "slot-jili": "https://static.imgbin.com/storage/games/providers/jili.png",
   "slot-pragmatic": "https://cdn.softswiss.net/i/s2/155/pragmaticplay.png",
   "casino-pragmatic": "https://cdn.softswiss.net/i/s2/155/pragmaticplay.png",
   "mini-pragmatic": "https://cdn.softswiss.net/i/s2/155/pragmaticplay.png",
@@ -38,7 +38,20 @@ const PROVIDER_LOGO_MAP: Record<string, string> = {
   "slot-amusnet": "https://cdn.softswiss.net/i/s2/122/amusnet.png",
   "slot-popiplay": "https://cdn.softswiss.net/i/s2/177/popiplay.png",
   "slot-wg": "https://cdn.softswiss.net/i/s2/184/worldmatch.png",
+  "casino-dream": "https://cdn.softswiss.net/i/s2/136/dreamgaming.png",
+  "casino-playace": "https://cdn.softswiss.net/i/s2/155/pragmaticplay.png",
+  "slot-homeslot": "https://cdn.softswiss.net/i/s2/187/jili.png",
+  "slot-atg": "https://cdn.softswiss.net/i/s2/185/3oaks.png",
+  "slot-amigo": "https://cdn.softswiss.net/i/s2/147/booongo.png",
+  "fishing-fungaming": "https://cdn.softswiss.net/i/s2/186/cq9.png",
+  "board-poker": "https://cdn.softswiss.net/i/s2/108/microgaming.png",
 };
+
+function getProviderInitials(name: string): string {
+  const words = name.split(/[\s-]+/);
+  if (words.length === 1) return name.substring(0, 2).toUpperCase();
+  return words.map(w => w.charAt(0)).join("").substring(0, 2).toUpperCase();
+}
 
 function ProviderLogo({ vendorCode, name }: { vendorCode: string; name: string }) {
   const [imgFailed, setImgFailed] = useState(false);
@@ -48,8 +61,8 @@ function ProviderLogo({ vendorCode, name }: { vendorCode: string; name: string }
 
   if (!logoUrl || imgFailed) {
     return (
-      <span className="w-4 h-4 rounded-sm bg-white/10 flex items-center justify-center text-[8px] font-bold text-white/40 flex-shrink-0">
-        {name.charAt(0)}
+      <span className="w-5 h-5 rounded-md bg-gradient-to-br from-amber-500/30 to-orange-500/30 flex items-center justify-center text-[8px] font-bold text-amber-300 flex-shrink-0 border border-amber-500/20">
+        {getProviderInitials(name)}
       </span>
     );
   }
@@ -58,7 +71,7 @@ function ProviderLogo({ vendorCode, name }: { vendorCode: string; name: string }
     <img
       src={logoUrl}
       alt={name}
-      className="w-4 h-4 rounded-sm object-contain flex-shrink-0"
+      className="w-5 h-5 rounded-md object-contain flex-shrink-0 bg-white/10 p-[1px]"
       onError={handleError}
       loading="lazy"
     />

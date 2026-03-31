@@ -207,11 +207,11 @@ export default function Deposit() {
                         : "border-white/10 bg-white/[0.02] hover:border-white/20"
                     }`}
                   >
-                    <div className={`w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold ${
-                      m === "bkash" ? "bg-pink-500 text-white" : "bg-orange-500 text-white"
-                    }`}>
-                      {m === "bkash" ? "b" : "N"}
-                    </div>
+                    <img
+                      src={m === "bkash" ? "/bkash-logo.png" : "/nagad-logo.png"}
+                      alt={m === "bkash" ? "bKash" : "Nagad"}
+                      className="w-12 h-12 rounded-full object-cover"
+                    />
                     <span className="text-sm font-bold text-white capitalize">{m === "bkash" ? "bKash" : "Nagad"}</span>
                   </button>
                 ))}
@@ -265,11 +265,11 @@ export default function Deposit() {
 
             <div className="bg-[#111827]/80 border border-white/5 rounded-2xl p-5">
               <div className="text-center mb-4">
-                <div className={`w-16 h-16 rounded-full mx-auto flex items-center justify-center text-2xl font-bold mb-3 ${
-                  method === "bkash" ? "bg-pink-500 text-white" : "bg-orange-500 text-white"
-                }`}>
-                  {method === "bkash" ? "b" : "N"}
-                </div>
+                <img
+                  src={method === "bkash" ? "/bkash-logo.png" : "/nagad-logo.png"}
+                  alt={method === "bkash" ? "bKash" : "Nagad"}
+                  className="w-16 h-16 rounded-full object-cover mx-auto mb-3"
+                />
                 <h2 className="text-lg font-bold text-white">{t("deposit.sendTo")} {method === "bkash" ? "bKash" : "Nagad"}</h2>
               </div>
 

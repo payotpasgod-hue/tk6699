@@ -263,11 +263,11 @@ export default function Withdraw() {
                         : "border-white/10 bg-white/[0.02] hover:border-white/20"
                     }`}
                   >
-                    <div className={`w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold ${
-                      m === "bkash" ? "bg-pink-500 text-white" : "bg-orange-500 text-white"
-                    }`}>
-                      {m === "bkash" ? "b" : "N"}
-                    </div>
+                    <img
+                      src={m === "bkash" ? "/bkash-logo.png" : "/nagad-logo.png"}
+                      alt={m === "bkash" ? "bKash" : "Nagad"}
+                      className="w-12 h-12 rounded-full object-cover"
+                    />
                     <span className="text-sm font-bold text-white capitalize">{m === "bkash" ? "bKash" : "Nagad"}</span>
                   </button>
                 ))}
