@@ -44,12 +44,19 @@ export function Navbar() {
       <nav className="sticky top-0 z-50 w-full bg-[#0a0e1a]/95 backdrop-blur-xl border-b border-white/5">
         <div className="max-w-[1400px] mx-auto px-3 sm:px-4">
           <div className="flex items-center justify-between h-14">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <div className="flex items-center gap-2 cursor-pointer" onClick={() => setLocation("/")}>
                 <img src="/images/logo.png" alt="TK6699" className="w-9 h-9 rounded-lg object-cover shadow-lg shadow-amber-500/20" />
                 <h1 className="text-lg font-display font-bold text-white tracking-wide hidden sm:block">
                   TK<span className="text-amber-400">6699</span>
                 </h1>
+              </div>
+              <div className="flex items-center gap-1 bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20 rounded-lg px-2.5 py-1">
+                <Wallet className="w-3.5 h-3.5 text-amber-400" />
+                <span className="text-sm font-bold text-amber-400">৳{(user?.balance || 0).toFixed(2)}</span>
+                <button onClick={handleSyncBalance} className="ml-0.5 hover:text-amber-300 transition-colors">
+                  <RefreshCw className="w-3 h-3 text-amber-400/60" />
+                </button>
               </div>
             </div>
 
@@ -62,14 +69,6 @@ export function Navbar() {
               </button>
 
               <LanguageSwitcher />
-
-              <div className="hidden sm:flex items-center gap-1.5 bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20 rounded-lg px-3 py-1.5">
-                <Wallet className="w-3.5 h-3.5 text-amber-400" />
-                <span className="text-sm font-bold text-amber-400">৳{(user?.balance || 0).toFixed(2)}</span>
-                <button onClick={handleSyncBalance} className="ml-1 hover:text-amber-300 transition-colors">
-                  <RefreshCw className="w-3 h-3 text-amber-400/60" />
-                </button>
-              </div>
 
               <button
                 onClick={() => setLocation("/bonus")}

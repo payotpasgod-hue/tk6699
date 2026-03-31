@@ -268,6 +268,17 @@ const translations: Record<Lang, Record<string, string>> = {
     "common.couldNotSync": "Could not sync balance",
 
     "google.configNeeded": "Google Sign-In requires configuration. Contact admin.",
+
+    "chat.title": "Live Support",
+    "chat.online": "Online now",
+    "chat.placeholder": "Type a message...",
+    "chat.welcome": "Hello {name}! Welcome to TK6699 support. How can we help you today?",
+    "chat.guest": "Player",
+    "chat.autoDeposit": "For deposits, please go to the Deposit page. We support bKash, Nagad, and bank transfer. If you're having issues, please share the details and our team will assist you shortly.",
+    "chat.autoWithdraw": "Withdrawals are processed within 15-30 minutes. Please ensure your account details are correct. If your withdrawal is delayed, our team will look into it shortly.",
+    "chat.autoBonus": "Check our Bonus Center for the latest promotions! New users get a welcome bonus on their first deposit. Our team can help with any bonus-related questions.",
+    "chat.autoGame": "If you're experiencing game loading issues, please try refreshing the page. If the problem persists, let us know the game name and we'll investigate.",
+    "chat.autoDefault": "Thank you for your message! Our support team will respond shortly. For urgent matters, you can also reach us on WhatsApp.",
   },
   bn: {
     "nav.bonus": "বোনাস",
@@ -527,6 +538,17 @@ const translations: Record<Lang, Record<string, string>> = {
     "common.couldNotSync": "ব্যালেন্স সিঙ্ক করা যায়নি",
 
     "google.configNeeded": "গুগল সাইন-ইন কনফিগারেশন প্রয়োজন। অ্যাডমিনের সাথে যোগাযোগ করুন।",
+
+    "chat.title": "লাইভ সাপোর্ট",
+    "chat.online": "এখন অনলাইন",
+    "chat.placeholder": "একটি মেসেজ লিখুন...",
+    "chat.welcome": "হ্যালো {name}! TK6699 সাপোর্টে স্বাগতম। আমরা কীভাবে আপনাকে সাহায্য করতে পারি?",
+    "chat.guest": "প্লেয়ার",
+    "chat.autoDeposit": "জমা দিতে অনুগ্রহ করে ডিপোজিট পৃষ্ঠায় যান। আমরা বিকাশ, নগদ এবং ব্যাংক ট্রান্সফার সমর্থন করি। সমস্যা হলে বিস্তারিত জানান, আমাদের টিম শীঘ্রই সাহায্য করবে।",
+    "chat.autoWithdraw": "উত্তোলন ১৫-৩০ মিনিটের মধ্যে প্রক্রিয়া করা হয়। আপনার অ্যাকাউন্টের তথ্য সঠিক আছে কিনা নিশ্চিত করুন। বিলম্ব হলে আমাদের টিম দেখবে।",
+    "chat.autoBonus": "সর্বশেষ প্রমোশনের জন্য আমাদের বোনাস সেন্টার দেখুন! নতুন ব্যবহারকারীরা প্রথম জমাতে স্বাগত বোনাস পান।",
+    "chat.autoGame": "গেম লোডিং সমস্যা হলে পৃষ্ঠা রিফ্রেশ করুন। সমস্যা থাকলে গেমের নাম জানান, আমরা দেখব।",
+    "chat.autoDefault": "আপনার মেসেজের জন্য ধন্যবাদ! আমাদের সাপোর্ট টিম শীঘ্রই উত্তর দেবে। জরুরি বিষয়ে হোয়াটসঅ্যাপেও যোগাযোগ করতে পারেন।",
   },
   hi: {
     "nav.bonus": "बोनस",
@@ -786,6 +808,17 @@ const translations: Record<Lang, Record<string, string>> = {
     "common.couldNotSync": "बैलेंस सिंक नहीं हो सका",
 
     "google.configNeeded": "Google साइन-इन कॉन्फ़िगरेशन आवश्यक। एडमिन से संपर्क करें।",
+
+    "chat.title": "लाइव सपोर्ट",
+    "chat.online": "अभी ऑनलाइन",
+    "chat.placeholder": "एक संदेश लिखें...",
+    "chat.welcome": "नमस्ते {name}! TK6699 सपोर्ट में आपका स्वागत है। हम आपकी कैसे मदद कर सकते हैं?",
+    "chat.guest": "प्लेयर",
+    "chat.autoDeposit": "जमा के लिए कृपया डिपॉजिट पेज पर जाएं। हम bKash, Nagad और बैंक ट्रांसफर सपोर्ट करते हैं। समस्या होने पर विवरण साझा करें, हमारी टीम जल्द मदद करेगी।",
+    "chat.autoWithdraw": "निकासी 15-30 मिनट में प्रोसेस होती है। अपने खाते की जानकारी सही है सुनिश्चित करें। देरी होने पर हमारी टीम देखेगी।",
+    "chat.autoBonus": "नवीनतम प्रमोशन के लिए बोनस सेंटर देखें! नए उपयोगकर्ताओं को पहली जमा पर स्वागत बोनस मिलता है।",
+    "chat.autoGame": "गेम लोडिंग समस्या होने पर पेज रिफ्रेश करें। समस्या बनी रहे तो गेम का नाम बताएं, हम देखेंगे।",
+    "chat.autoDefault": "आपके संदेश के लिए धन्यवाद! हमारी सपोर्ट टीम जल्द जवाब देगी। तत्काल मामलों के लिए WhatsApp पर भी संपर्क कर सकते हैं।",
   },
 };
 

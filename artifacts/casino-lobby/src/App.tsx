@@ -4,6 +4,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuthStore } from "@/store/use-auth-store";
 import { PWAInstallPrompt } from "@/components/casino/PWAInstallPrompt";
+import { LiveChat } from "@/components/casino/LiveChat";
 import Lobby from "./pages/Lobby";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -71,6 +72,7 @@ function App() {
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
           <Router />
           <PWAInstallPrompt />
+          <LiveChat />
         </WouterRouter>
         <Toaster />
       </TooltipProvider>
